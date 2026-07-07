@@ -6,7 +6,7 @@
 
 ## 结论先说
 
-**没有 UR5e 不影响复现 ACP 核心方法。** 你们已有：
+**没有 UR5e 不影响复现 ACP 核心方法。** 已有：
 
 | 能力 | robot-control-v1.5 对应模块 | ACP 需求 |
 |------|---------------------------|----------|
@@ -215,4 +215,4 @@ stiffness_estimation_para = {
 3. **[桥接开发]** 写 `acp_i7_bridge.py`：读 checkpoint → 读 i7 状态 → 发 x_virt
 4. **[数据采集]** 扩展 episode 录制（RGB + wrench + pose 同步）
 
-需要我先做哪一步，直接说编号即可。
+
