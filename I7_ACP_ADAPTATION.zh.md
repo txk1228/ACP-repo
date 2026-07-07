@@ -215,4 +215,4 @@ stiffness_estimation_para = {
 3. **[桥接开发]** 写 `acp_i7_bridge.py`：读 checkpoint → 读 i7 状态 → 发 x_virt
 4. **[数据采集]** 扩展 episode 录制（RGB + wrench + pose 同步）
 
-需要我先做哪一步，直接说编号即可。
+
