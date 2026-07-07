@@ -5,6 +5,10 @@
 - 论文主页：[adaptive-compliance.github.io](https://adaptive-compliance.github.io/)
 - 官方代码：[yifan-hou/adaptive_compliance_policy](https://github.com/yifan-hou/adaptive_compliance_policy)
 
+## 学习导图
+
+- `docs/ACP_ALGORITHM_GUIDE.zh.md`：ACP 算法完整讲解（考核答辩版）
+
 ## 当前进度
 
 | 阶段 | 状态 | 说明 |
