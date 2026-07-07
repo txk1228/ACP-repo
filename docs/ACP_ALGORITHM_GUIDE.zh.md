@@ -1,7 +1,7 @@
-# ACP 算法完整讲解（考核答辩版）
+# ACP 算法完整讲解（落实版）
 
 > 更新时间：2026-07-07  
-> 适用对象：需要在实习/答辩中把 ACP 讲清楚、讲透彻、能落地的人。
+> 适用对象：把 ACP 讲清楚、讲透彻、能落地的。
 
 ## 1. 一句话定义
 
@@ -20,7 +20,7 @@
 
 传统视觉策略一般只预测位置，不预测柔顺参数，导致要么硬碰硬、要么全程太软。ACP 的目标是**时空可变柔顺**：只在该软的方向软，该硬的方向仍硬。
 
-## 3. 核心思想（必须背下来的三条）
+## 3. 核心思想（三条）
 
 1. **只在力方向降刚度**：把接触力方向看作柔顺主轴
 2. **虚拟目标替代直接力控**：
@@ -61,18 +61,18 @@
 - 其他方向维持高刚度，轨迹不漂
 - 虚拟目标把“力控需求”转成“位置接口可执行”的命令
 
-## 7. 论文结果（答辩可引用）
+## 7. 论文结果
 
 项目页和论文报告：ACP 在接触任务中相较刚性/固定柔顺基线有显著提升，整体提升幅度可超过 50%。
 
-## 8. 你当前仓库里的对应实现
+## 8. 当前仓库里的对应实现
 
 - 标签/虚拟目标估计：`adaptive_compliance_policy/PyriteEnvSuites/scripts/postprocess_add_virtual_target_label.py`
 - 估计器核心：`adaptive_compliance_policy/PyriteUtility/planning_control/compliance_helpers.py`
 - 推理重建刚度：`adaptive_compliance_policy/PyriteEnvSuites/env_runners/virtual_target_real_env_runner.py`
 - 你已完成 Demo：`demo/virtual_target_stiffness_demo.py`
 
-## 9. 你当前 demo 的验证结果（已跑通）
+## 9. 当前 demo 的验证结果（已跑通）
 
 来自 `demo/output/demo_summary.txt`：
 - Steps: 400
@@ -92,7 +92,7 @@
 
 配套文档见：`I7_ACP_ADAPTATION.zh.md`。
 
-## 11. 面试/答辩高频问答（速记）
+## 11. 高频问答
 
 **Q1：ACP 相比 Diffusion Policy 新在哪里？**  
 A：不仅预测位姿，还预测柔顺刚度；并融合力觉特征。
@@ -103,7 +103,7 @@ A：把力控转成位置可执行命令，适配大多数工业控制接口。
 **Q3：为什么不是全维统一软？**  
 A：统一软会丢轨迹；ACP 只在冲突方向软，兼顾安全和精度。
 
-## 12. 下一步（你当前阶段）
+## 12. 下一步（当前阶段）
 
 - 继续巩固：逐行阅读 `VirtualTargetEstimator` 与 demo 对照
 - 暂缓训练：等待 4090 后执行 `REPRODUCTION.zh.md` 阶段二
