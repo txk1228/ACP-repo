@@ -1,0 +1,13 @@
+ACP Virtual Target + Stiffness Demo
+===================================
+Steps: 400
+Contact start: t=2.200s
+Peak force: 12.09 N at t=3.990s
+Stiffness range: [200, 5000] N/m
+At peak: k_low=200 N/m
+K_trans eigenvalues: [ 200. 5000. 5000.]
+
+Core formula:
+  u = f / ||f||
+  K = S @ diag(k_low, k_high, k_high) @ S^-1
+  x_virt = x_ref + K^-1 @ f
