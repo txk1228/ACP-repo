@@ -7,6 +7,8 @@
 
 ## 学习导图
 
+- `docs/ACP_DATA_FLOW.zh.md`：按数据流学习核心代码（5 层架构 + 学习顺序）
+- `docs/ACP_FEISHU_STUDY.zh.md`：ACP 论文研读笔记（飞书版，含网络结构/数据对齐/信息注入）
 - `docs/ACP_ALGORITHM_GUIDE.zh.md`：ACP 算法完整讲解（考核答辩版）
 
 ## 当前进度
