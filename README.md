@@ -17,14 +17,11 @@
 ## 快速开始
 
 ```bash
-# 1. 克隆本仓库
+# 1. 克隆本仓库（已包含官方 ACP 代码副本 + 本地复现改动）
 git clone https://github.com/txk1228/ACP-repo.git
 cd ACP-repo
 
-# 2. 克隆 ACP 官方代码（子目录，已在 .gitignore）
-bash scripts/clone_upstream.sh
-
-# 3. Demo 环境并运行
+# 2. Demo 环境并运行
 bash scripts/setup_demo_env.sh
 conda activate acp-demo
 bash scripts/run_demo.sh
