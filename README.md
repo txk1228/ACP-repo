@@ -81,14 +81,15 @@ ACP-repo/
 │
 ├── logs/                            # 运行日志（gitignore，本地保留）
 │
-└── adaptive_compliance_policy/      # 官方上游（gitignore，需 clone）
+└── adaptive_compliance_policy/      # 官方 ACP 代码（已纳入本仓库，~2MB）
     ├── PyriteML/                    # 训练入口 train.py + diffusion_policy
     ├── PyriteUtility/               # 柔顺控制 / 空间数学等
     ├── PyriteConfig/                # 任务配置
     └── PyriteEnvSuites/             # 环境与 runner
 ```
 
-根目录只保留 `README` 与上述目录：脚本走 `scripts/`，文档走 `docs/`，日志进 `logs/`。
+根目录只保留 `README` 与上述目录：脚本走 `scripts/`，文档走 `docs/`，日志进 `logs/`。  
+`adaptive_compliance_policy/` 来自 [官方仓库](https://github.com/yifan-hou/adaptive_compliance_policy)，并含本复现的本地改动（如 Conv 对比 yaml、`val_metrics`）。可选对照上游：`bash scripts/clone_upstream.sh`。
 
 ## 文档导图
 
