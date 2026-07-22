@@ -22,16 +22,41 @@ import os
 import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib import cm
-from spatialmath import SE3
-from spatialmath.base import q2r, r2q
+# 避免 ~/.local 旧包污染（常见：系统 python + 用户 site 的 matplotlib/numpy 冲突）
+os.environ.setdefault("PYTHONNOUSERSITE", "1")
 
 # 引用 ACP 官方核心模块
 ROOT = Path(__file__).resolve().parents[1]
 ACP_SRC = ROOT / "adaptive_compliance_policy"
 sys.path.insert(0, str(ACP_SRC))
+
+
+def _check_runtime() -> None:
+    """在依赖导入前给出可操作的环境提示。"""
+    exe = Path(sys.executable).resolve()
+    expected = Path.home() / "miniconda3/envs/acp-demo/bin/python"
+    if "acp-demo" not in str(exe):
+        print(
+            "错误：当前 Python 不是 acp-demo 环境。\n"
+            f"  当前: {exe}\n"
+            f"  期望: {expected}\n\n"
+            "请任选其一：\n"
+            "  1) Cursor 右下角选择解释器 → acp-demo\n"
+            "  2) 终端执行: conda activate acp-demo && bash scripts/run_demo.sh\n"
+            "  3) 直接用: ~/miniconda3/envs/acp-demo/bin/python "
+            "demo/virtual_target_stiffness_demo.py --save demo/output\n",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+_check_runtime()
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import cm
+from spatialmath import SE3
+from spatialmath.base import q2r, r2q
 
 from PyriteUtility.planning_control import compliance_helpers as ch  # noqa: E402
 from PyriteUtility.spatial_math import spatial_utilities as su  # noqa: E402

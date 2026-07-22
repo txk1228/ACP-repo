@@ -40,8 +40,8 @@
 
 ```bash
 source ~/miniconda3/etc/profile.d/conda.sh && conda activate pyrite
-source /home/xiaoke/ACP_fx/setup_env.sh
-bash /home/xiaoke/ACP_fx/train_acp.sh spec
+source scripts/setup_env.sh
+bash scripts/train_acp.sh spec
 ```
 
 策略输入/输出与机器人类型无关：

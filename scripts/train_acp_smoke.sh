@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
-# CPU 冒烟测试：验证环境 + 数据集 + 训练 pipeline 能跑通（非完整训练）
+# GPU 冒烟测试：验证环境 + 训练 pipeline 能进 4090（非完整训练）
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate pyrite
-source /home/xiaoke/ACP_fx/setup_env.sh
+source "$REPO_ROOT/scripts/setup_env.sh"
 
-cd /home/xiaoke/ACP_fx/adaptive_compliance_policy/PyriteML
+cd "$REPO_ROOT/adaptive_compliance_policy/PyriteML"
 
 MODE="${1:-spec}"
 CONFIG=$([[ "$MODE" == "conv" ]] && echo "train_conv_workspace" || echo "train_spec_workspace")
 
-echo "=== ACP CPU smoke test (5 epochs, batch=4) ==="
+echo "=== ACP GPU smoke test (短跑, batch=4) ==="
 export PYTHONNOUSERSITE=1
 export WANDB_MODE=disabled
-HYDRA_FULL_ERROR=1 python -m accelerate.commands.launch train.py --config-name="$CONFIG" \
-  training.device=cpu \
+HYDRA_FULL_ERROR=1 python -m accelerate.commands.launch \
+  --config_file "$REPO_ROOT/config/accelerate_config.yaml" \
+  train.py --config-name="$CONFIG" \
+  training.device=cuda \
   dataloader.batch_size=4 \
   dataloader.num_workers=2 \
   val_dataloader.batch_size=4 \

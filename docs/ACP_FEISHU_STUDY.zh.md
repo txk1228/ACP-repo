@@ -230,9 +230,10 @@ ACP 的信息注入体现在三个层面：
 - 保留摩擦、冲击的周期性特征
 - 代码：`convert_to_spec()` → `ForceSpecEncoder`
 
-### 7.2 多模态融合：Transformer 交叉注意力
+### 7.2 多模态融合：Transformer 自注意力
 
-- 视觉特征作 Query，力特征作 Key/Value
+- RGB 与力特征对齐后拼成同一条 token 序列
+- 经 `TransformerEncoderLayer` 做 **Self-Attention**（不是交叉注意力）
 - 代码：`fuse_mode: modality-attention`
 - 让模型学习“看到什么 + 感受到什么 → 该怎么动”
 
@@ -248,14 +249,49 @@ ACP 的信息注入体现在三个层面：
 
 **文件：** `virtual_target_real_env_runner.py`
 
+### 8.1 双层控制架构（修正版）
+
+> 网络**不直接**输出刚度矩阵 K；底层跟踪的是 **x_virt**，不是 x_ref。
+
+![ACP 双层控制架构（修正版）](figures/acp_control_flowchart_corrected.png)
+
+```mermaid
+flowchart TB
+    subgraph slow["上层 ACP（低频）"]
+        OBS["多模态观测<br/>RGB + 力时序 + 位姿"]
+        ACP["ACP 扩散策略网络"]
+        OUT19["输出 19D<br/>x_ref + x_virt + k_low"]
+        RECON["中间件：重建刚度矩阵 K<br/>柔顺方向 = x_virt − x_ref<br/>K = S·diag(k_low,k_high,k_high)·S⁻¹"]
+        OBS --> ACP --> OUT19 --> RECON
+    end
+
+    subgraph fast["下层导纳控制（高频 ≥500Hz）"]
+        ADM["导纳柔顺控制器"]
+        ROBOT["机械臂执行接触"]
+        RECON -->|"下发 x_virt 轨迹 + K"| ADM
+        ADM -->|"控制指令"| ROBOT
+        ROBOT -->|"快环：力/位姿"| ADM
+    end
+
+    ROBOT -->|"慢环：更新观测缓冲"| OBS
 ```
-每 50ms 一个 horizon：
+
+**要点：**
+- 上层输出：`x_ref`、`x_virt`、`k_low`（19 维）
+- 中间重建：由 `x_virt−x_ref` 得柔顺主轴，再与 `k_low` 拼出 6×6 的 `K`
+- 下层输入：`x_virt` + `K` + 实时力 `f`（`x_ref` 不进跟踪）
+- 双时间尺度：导纳快环闭环；ACP 慢环重规划
+
+### 8.2 单 horizon 执行步骤
+
+```
+每 ~50ms 一个 horizon：
   ① env.get_observation_from_buffer()     读硬件
   ② raw_to_obs()                          格式转换
-  ③ policy.predict_action()               模型推理
+  ③ policy.predict_action()               模型推理 → 19D
   ④ 拆包：x_ref, x_virt, k_low
   ⑤ 由 x_ref/x_virt 差重构 6×6 刚度矩阵 K
-  ⑥ 下发给底层导纳控制器执行
+  ⑥ schedule_controls(x_virt, K)         下发给底层导纳
 ```
 
 ---

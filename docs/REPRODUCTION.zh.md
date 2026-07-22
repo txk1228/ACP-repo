@@ -16,7 +16,7 @@
 ### 1. 创建 Demo 环境（~2 分钟，无需 GPU）
 
 ```bash
-bash /home/xiaoke/ACP_fx/setup_demo_env.sh
+bash scripts/setup_demo_env.sh
 conda activate acp-demo
 ```
 
@@ -25,9 +25,9 @@ conda activate acp-demo
 ### 2. 运行核心算法 Demo
 
 ```bash
-bash /home/xiaoke/ACP_fx/run_demo.sh
+bash scripts/run_demo.sh
 # 或无 GUI 环境：
-bash /home/xiaoke/ACP_fx/run_demo.sh --no-show
+bash scripts/run_demo.sh --no-show
 ```
 
 输出：
@@ -64,7 +64,7 @@ Demo 演示 ACP 核心公式：
 
 ## 当前环境状态
 
-- 代码：已克隆至 `/home/xiaoke/ACP_fx/adaptive_compliance_policy`
+- 代码：已克隆至 `adaptive_compliance_policy/`
 - GPU：当前机器未检测到 NVIDIA GPU（训练需 CUDA）
 - conda/mamba：未安装（官方推荐 mamba）
 
@@ -116,7 +116,7 @@ source ~/miniforge3/bin/activate
 ### Step 2：创建环境
 
 ```bash
-cd /home/xiaoke/ACP_fx/adaptive_compliance_policy
+cd adaptive_compliance_policy
 mamba env create -f conda_environment.yaml
 mamba activate pyrite
 pip install v4l2py toppra atomics vit-pytorch imagecodecs
@@ -153,7 +153,7 @@ unzip checkpoints.zip
 ### Step 5：训练
 
 ```bash
-cd /home/xiaoke/ACP_fx/adaptive_compliance_policy/PyriteML
+cd adaptive_compliance_policy/PyriteML
 accelerate config   # 首次配置
 
 # ACP（FFT 力编码）— 翻转任务
@@ -226,21 +226,21 @@ git clone https://github.com/yifan-hou/hardware_interfaces.git
 ## 下一步（按阶段）
 
 ### 阶段一 ✅ 已完成
-- [x] 轻量 Demo 环境 `acp-demo`（`setup_demo_env.sh`）
-- [x] 核心算法 Demo：虚拟目标 + 刚度可视化（`run_demo.sh`）
+- [x] 轻量 Demo 环境 `acp-demo`（`scripts/setup_demo_env.sh`）
+- [x] 核心算法 Demo：虚拟目标 + 刚度可视化（`scripts/run_demo.sh`）
 
 ### 阶段二 ⏸ 待 RTX 4090 到位后执行
 1. **配置训练环境**（在 GPU 机器上运行，无需 mamba，miniconda 即可）：
    ```bash
-   bash /home/xiaoke/ACP_fx/setup_pyrite_env.sh   # 创建 pyrite 环境 + PyTorch
-   source /home/xiaoke/ACP_fx/setup_env.sh
+   bash scripts/setup_pyrite_env.sh   # 创建 pyrite 环境 + PyTorch
+   source scripts/setup_env.sh
    ```
 2. **下载数据集并训练**（约 10 GB）：
    ```bash
    mkdir -p ~/data/real_processed && cd ~/data/real_processed
    wget https://real.stanford.edu/adaptive-compliance/data/flip_up_230.zip
    unzip flip_up_230.zip
-   bash /home/xiaoke/ACP_fx/train_acp.sh spec
+   bash scripts/train_acp.sh spec
    ```
 
 ### 阶段三（可与阶段二并行）

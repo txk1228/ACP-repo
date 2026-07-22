@@ -1,0 +1,47 @@
+{
+  "archived_at": "2026-07-22",
+  "encoding": "spec_fft",
+  "paper_target_epochs": 300,
+  "epoch_index_range": [
+    0,
+    299
+  ],
+  "checkpoint_every": 10,
+  "latest_ckpt_epoch_pickle": 290,
+  "note": "latest.ckpt epoch=290 is last in-range checkpoint save; training completed through epoch 299.",
+  "stiffness_label_range_Npm": {
+    "k_min": 200,
+    "k_max": 5000
+  },
+  "runs": {
+    "flip_up_spec": {
+      "role": "single_arm_canonical",
+      "run_dir": "/home/zj/training_outputs/2026.07.17_14.42.42_flip_up_new_resnet_230",
+      "dataset": "~/data/real_processed/flip_up_new_v5",
+      "config": "train_spec_workspace + task=flip_up_spec",
+      "obs_encoder": "TimmObsEncoderWithForceSpec",
+      "batch_size": 128,
+      "train_loss_epoch_299": 0.010640931732597805,
+      "latest_ckpt": "checkpoints/latest.ckpt",
+      "eval_at_epoch": 290,
+      "eval_note": "Offline backfill 2026-07-22 via scripts/eval_val_metrics.py max_batches=20",
+      "reference_pose_pos_rmse_mm": 9.167538955807686,
+      "virtual_target_pos_rmse_mm": 10.374151170253754,
+      "stiffness_rmse_Npm": 482.17218017578125
+    },
+    "vase_wiping_spec": {
+      "role": "dual_arm_canonical",
+      "run_dir": "/home/zj/training_outputs/2026.07.18_10.23.05_vase_wiping_resnet_230",
+      "dataset": "~/data/real_processed/vase_wiping_v6.3",
+      "config": "train_spec_workspace + task=vase_wiping_spec",
+      "obs_encoder": "TimmObsEncoderWithForceSpec",
+      "batch_size": 32,
+      "train_loss_epoch_299": 0.010242245981658162,
+      "latest_ckpt": "checkpoints/latest.ckpt",
+      "eval_at_epoch": 290,
+      "reference_pose_pos_rmse_mm": 22.46228978037834,
+      "virtual_target_pos_rmse_mm": 24.293648079037666,
+      "stiffness_rmse_Npm": 834.2993774414062
+    }
+  }
+}

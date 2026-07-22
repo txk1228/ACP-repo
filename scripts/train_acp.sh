@@ -2,11 +2,12 @@
 # 启动 ACP 训练（需先 activate pyrite 环境并 source setup_env.sh）
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate pyrite
-source /home/xiaoke/ACP_fx/setup_env.sh
+source "$REPO_ROOT/scripts/setup_env.sh"
 
-cd /home/xiaoke/ACP_fx/adaptive_compliance_policy/PyriteML
+cd "$REPO_ROOT/adaptive_compliance_policy/PyriteML"
 
 MODE="${1:-spec}"  # spec=FFT, conv=TCN
 
@@ -20,4 +21,7 @@ else
 fi
 
 echo "Training ACP with config: $CONFIG"
-HYDRA_FULL_ERROR=1 python -m accelerate.commands.launch train.py --config-name="$CONFIG"
+export PYTHONNOUSERSITE=1
+HYDRA_FULL_ERROR=1 python -m accelerate.commands.launch \
+  --config_file "$REPO_ROOT/config/accelerate_config.yaml" \
+  train.py --config-name="$CONFIG"
