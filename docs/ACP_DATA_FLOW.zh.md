@@ -289,4 +289,4 @@ controller.set_observation(obs_task["obs"])
 ## 配套文档
 
 - `docs/ACP_FEISHU_STUDY.zh.md`：论文研读笔记（网络结构、数据清洗/对齐、增强、信息注入）
-- `docs/ACP_ALGORITHM_GUIDE.zh.md`：算法原理讲解（考核答辩版）
+- `docs/ACP_ALGORITHM_GUIDE.zh.md`：算法原理讲解

@@ -36,6 +36,81 @@ bash scripts/train_acp_smoke.sh         # 短跑验证
 # bash scripts/train_acp.sh spec        # 完整 Spec 训练
 ```
 
+## 训练进度可视化面板
+
+代码：`scripts/train_progress_server.py`（纯标准库 HTTP 服务，读 `~/training_outputs/*/logs.json.txt` 与 `logs/train_*.log`）。
+
+```bash
+# 一键启动（后台）
+bash scripts/run_progress_panel.sh
+
+# 浏览器打开
+# http://127.0.0.1:8765
+```
+
+| 操作 | 命令 |
+|------|------|
+| 启动 | `bash scripts/run_progress_panel.sh` |
+| 打开页面 | 浏览器访问 http://127.0.0.1:8765 |
+| 前台调试 | `python3 scripts/train_progress_server.py` |
+| 停止 | `fuser -k 8765/tcp` |
+
+面板展示 Spec / Conv 的 Flip、Vase 进度、loss 与物理 RMSE；训练日志需落在 `logs/`（如 `logs/train_vase_wiping_conv.log`）。
+
+## 断点续训（断电 / 中断后接着跑）
+
+训练默认每 **10** 个 epoch 写入 `~/training_outputs/<run_dir>/checkpoints/latest.ckpt`。  
+中断后**不要**再开一条全新命令从头训；应对**同一个 run 目录**设 `training.resume=true`，从 `latest.ckpt` 恢复 epoch / 优化器状态。
+
+### 流程
+
+```bash
+# 1. 找到被中断的那次 run（按时间或面板里的路径）
+ls -lt ~/training_outputs | head
+
+# 2. 确认有权重
+ls ~/training_outputs/<run_dir>/checkpoints/latest.ckpt
+
+# 3. 续训（通用入口）
+bash scripts/train_resume.sh <run_dir> <config-name> [与当初相同的 hydra 覆盖项...]
+```
+
+### 常用示例
+
+```bash
+# vase Spec（正式基线；也可不传路径，脚本有默认目录）
+bash scripts/train_vase_resume.sh
+# 或显式指定：
+bash scripts/train_vase_resume.sh ~/training_outputs/2026.07.18_10.23.05_vase_wiping_resnet_230
+
+# vase Conv 对比（把 run_dir 换成你中断的那次）
+bash scripts/train_resume.sh \
+  ~/training_outputs/2026.07.22_14.38.26_vase_wiping_conv_compare_230 \
+  train_conv_compare_vase_workspace \
+  training.eval_metrics_max_batches=20
+
+# flip Spec
+bash scripts/train_resume.sh \
+  ~/training_outputs/2026.07.17_14.42.42_flip_up_new_resnet_230 \
+  train_spec_workspace \
+  task=flip_up_spec
+
+# flip Conv 对比
+bash scripts/train_resume.sh \
+  ~/training_outputs/2026.07.22_10.58.33_flip_up_new_conv_compare_230 \
+  train_conv_compare_flip_workspace
+```
+
+### 注意
+
+| 要点 | 说明 |
+|------|------|
+| 必须指向**原 run 目录** | `hydra.run.dir=该目录`，否则会新建输出目录等于重开 |
+| 覆盖项尽量与初训一致 | 如 vase 的 `batch_size=32`、`num_workers=2` |
+| 尚无 `latest.ckpt` | 说明还没存过盘（&lt;10 epoch），无法续，只能重开 |
+| 已跑满 300 epoch | 续训会直接结束，无需再跑 |
+| 进度面板 | 续训日志继续写原 `logs.json.txt`，面板可接着看 |
+
 ## 目录结构
 
 ```text
@@ -56,7 +131,7 @@ ACP-repo/
 │   ├── I7_ACP_ADAPTATION.zh.md      # 至简 i7 Pro 适配
 │   ├── ACP_DATA_FLOW.zh.md          # 数据流 / 学习顺序
 │   ├── ACP_FEISHU_STUDY.zh.md       # 论文研读笔记
-│   ├── ACP_ALGORITHM_GUIDE.zh.md    # 算法讲解（答辩版）
+│   ├── ACP_ALGORITHM_GUIDE.zh.md    # 算法讲解
 │   ├── WORKSTATION_4090_SETUP.zh.md # 4090 工作站配置
 │   ├── TRAINING_RESULTS_SPEC.zh.md  # Spec 训练结果归档
 │   ├── TRAINING_CONV_COMPARE.zh.md  # Conv 对比实验说明
@@ -73,9 +148,11 @@ ACP-repo/
 │   ├── train_acp.sh                 # 通用训练入口 (spec|conv)
 │   ├── train_acp_smoke.sh           # GPU 冒烟短跑
 │   ├── train_vase.sh                # 双臂 vase Spec 训练
-│   ├── train_vase_resume.sh         # vase 断点续训
+│   ├── train_vase_resume.sh         # vase Spec 断点续训（快捷）
+│   ├── train_resume.sh              # 通用断点续训入口
 │   ├── eval_val_metrics.py          # 离线 val RMSE
-│   ├── train_progress_server.py     # 训练进度面板 :8765
+│   ├── train_progress_server.py     # 训练进度面板服务（:8765）
+│   ├── run_progress_panel.sh        # 一键启动进度面板
 │   ├── refresh_train_progress_canvas.py
 │   └── sync_to_github.sh            # 本地改动推送
 │
@@ -112,4 +189,4 @@ bash scripts/sync_to_github.sh "commit message"
 
 ## License
 
-本仓库中的自定义脚本与文档为个人学习复现用途。ACP 官方代码遵循其原仓库 [MIT License](https://github.com/yifan-hou/adaptive_compliance_policy/blob/main/LICENSE)。
+本仓库中的自定义脚本与文档用于 ACP 复现与工程交接。ACP 官方代码遵循其原仓库 [MIT License](https://github.com/yifan-hou/adaptive_compliance_policy/blob/main/LICENSE)。

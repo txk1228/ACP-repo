@@ -13,22 +13,23 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 OUTPUTS = Path.home() / "training_outputs"
-HOME = Path.home() / "ACP_fx"
+REPO = Path(__file__).resolve().parents[1]
+LOGS = REPO / "logs"
 
 # Canonical Spec baselines (archived)
 SPEC_FLIP_DIR = OUTPUTS / "2026.07.17_14.42.42_flip_up_new_resnet_230"
 SPEC_VASE_DIR = OUTPUTS / "2026.07.18_10.23.05_vase_wiping_resnet_230"
 
-FLIP_SPEC_LOG = HOME / "train_flip_up.log"
-VASE_SPEC_LOG = HOME / "train_vase_wiping.log"
-FLIP_CONV_LOG = HOME / "train_flip_up_conv.log"
-VASE_CONV_LOG = HOME / "train_vase_wiping_conv.log"
+FLIP_SPEC_LOG = LOGS / "train_flip_up.log"
+VASE_SPEC_LOG = LOGS / "train_vase_wiping.log"
+FLIP_CONV_LOG = LOGS / "train_flip_up_conv.log"
+VASE_CONV_LOG = LOGS / "train_vase_wiping_conv.log"
 
 TOTAL_EPOCHS = 300
 SEC_PER_STEP_FLIP = 0.33
 SEC_PER_STEP_VASE = 1.0
-STEPS_PER_EPOCH_FLIP = 105
-STEPS_PER_EPOCH_VASE = 781
+STEPS_PER_EPOCH_FLIP = 104  # Spec flip, batch=128
+STEPS_PER_EPOCH_VASE = 780  # Spec/Conv vase, batch=32
 HOST, PORT = "127.0.0.1", 8765
 
 

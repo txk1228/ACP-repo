@@ -105,6 +105,6 @@ A：统一软会丢轨迹；ACP 只在冲突方向软，兼顾安全和精度。
 
 ## 12. 下一步（当前阶段）
 
-- 继续巩固：逐行阅读 `VirtualTargetEstimator` 与 demo 对照
-- 暂缓训练：等待 4090 后执行 `docs/REPRODUCTION.zh.md` 阶段二
-- 我会继续协助：数据准备、训练脚本、复现对齐、答辩材料
+- 对照 demo 精读 `VirtualTargetEstimator`
+- 完整训练与结果归档见 `docs/REPRODUCTION.zh.md`、`docs/TRAINING_RESULTS_SPEC.zh.md`
+- 真机迁移见 `docs/I7_ACP_ADAPTATION.zh.md`
