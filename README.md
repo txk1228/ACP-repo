@@ -11,7 +11,7 @@
 |------|------|------|
 | 阶段一 Demo | ✅ | 虚拟目标 + 变刚度可视化 |
 | 阶段二 Spec 训练 | ✅ | Flip-up + Vase wiping，300 epoch，见 `docs/TRAINING_RESULTS_SPEC.zh.md` |
-| 阶段二 Conv 对比 | 📋 | 配置已就绪，见 `docs/TRAINING_CONV_COMPARE.zh.md` |
+| 阶段二 Conv 对比 | ✅ | 配置已就绪，见 `docs/TRAINING_CONV_COMPARE.zh.md` |
 | 阶段三 真机 | 📋 | i7 Pro 适配方案见 `docs/I7_ACP_ADAPTATION.zh.md` |
 
 ## 快速开始

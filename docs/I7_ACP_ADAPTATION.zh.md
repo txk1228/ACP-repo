@@ -210,9 +210,8 @@ stiffness_estimation_para = {
 
 ## 下一步行动
 
-
-2. **[真机验证]** 启用 `force_admittance`，手推右臂验证柔顺响应
-3. **[桥接开发]** 写 `acp_i7_bridge.py`：读 checkpoint → 读 i7 状态 → 发 x_virt
-4. **[数据采集]** 扩展 episode 录制（RGB + wrench + pose 同步）
+1. **[真机验证]** 启用 `force_admittance`，手推右臂验证柔顺响应
+2. **[桥接开发]** 写 `acp_i7_bridge.py`：读 checkpoint → 读 i7 状态 → 发 x_virt
+3. **[数据采集]** 扩展 episode 录制（RGB + wrench + pose 同步）
 
 
