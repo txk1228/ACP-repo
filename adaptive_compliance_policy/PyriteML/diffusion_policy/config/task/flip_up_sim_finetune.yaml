@@ -1,0 +1,109 @@
+name: flip_up_sim
+
+# 与 flip_up_spec 同 shape_meta；dataset → 仿真 zarr
+sparse_obs_rgb_down_sample_steps: 10
+sparse_obs_rgb_horizon: 2
+
+sparse_obs_low_dim_down_sample_steps: 5
+sparse_obs_low_dim_horizon: 3
+
+sparse_obs_wrench_down_sample_steps: 1
+sparse_obs_wrench_horizon: 7000
+
+sparse_action_down_sample_steps: 50
+sparse_action_horizon: 16
+
+
+shape_meta: &shape_meta
+  id_list: [0]
+  raw:
+    rgb_0:
+      shape: [3, 224, 224]
+      type: rgb
+    ts_pose_fb_0:
+      shape: [7]
+      type: low_dim
+    ts_pose_command_0:
+      shape: [7]
+      type: low_dim
+    ts_pose_virtual_target_0:
+      shape: [7]
+      type: low_dim
+    stiffness_0:
+      shape: [1]
+      type: low_dim
+    wrench_0:
+      shape: [6]
+      type: low_dim
+    rgb_time_stamps_0:
+      shape: [1]
+      type: timestamp
+    robot_time_stamps_0:
+      shape: [1]
+      type: timestamp
+    wrench_time_stamps_0:
+      shape: [1]
+      type: timestamp
+
+  obs:
+    rgb_0:
+      shape: [3, 224, 224]
+      type: rgb
+    robot0_eef_pos:
+      shape: [3]
+      type: low_dim
+    robot0_eef_rot_axis_angle:
+      shape: [6]
+      type: low_dim
+      rotation_rep: rotation_6d
+    robot0_eef_wrench:
+      shape: [6]
+      type: low_dim
+    rgb_time_stamps_0:
+      shape: [1]
+      type: timestamp
+    robot_time_stamps_0:
+      shape: [1]
+      type: timestamp
+    wrench_time_stamps_0:
+      shape: [1]
+      type: timestamp
+  action:
+    shape: [19]
+    rotation_rep: rotation_6d
+  sample:
+    obs:
+      sparse:
+        rgb_0:
+          horizon: ${task.sparse_obs_rgb_horizon}
+          down_sample_steps: ${task.sparse_obs_rgb_down_sample_steps}
+        robot0_eef_pos:
+          horizon: ${task.sparse_obs_low_dim_horizon}
+          down_sample_steps: ${task.sparse_obs_low_dim_down_sample_steps}
+        robot0_eef_rot_axis_angle:
+          horizon: ${task.sparse_obs_low_dim_horizon}
+          down_sample_steps: ${task.sparse_obs_low_dim_down_sample_steps}
+        robot0_eef_wrench:
+          horizon: ${task.sparse_obs_wrench_horizon}
+          down_sample_steps: ${task.sparse_obs_wrench_down_sample_steps}
+    action:
+      sparse:
+        horizon: ${task.sparse_action_horizon}
+        down_sample_steps: ${task.sparse_action_down_sample_steps}
+
+task_name: &task_name flip_up_sim
+dataset_path: ${oc.env:PYRITE_DATASET_FOLDERS}/flip_up_sim_v1
+
+env_runner:
+  _target_: diffusion_policy.env_runner.real_pusht_image_runner.RealPushTImageRunner
+
+dataset:
+  _target_: diffusion_policy.dataset.virtual_target_dataset.VirtualTargetDataset
+  shape_meta: *shape_meta
+  dataset_path: ${task.dataset_path}
+  sparse_query_frequency_down_sample_steps: 8
+  action_padding: False
+  temporally_independent_normalization: False
+  seed: 42
+  val_ratio: 0.1
+  normalize_wrench: False

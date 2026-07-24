@@ -69,6 +69,17 @@ HYDRA_FULL_ERROR=1 accelerate launch train.py \
 
 ---
 
+## 当前跑次（2026-07-23）
+
+| 任务 | 状态 | run 目录 | 终盘 / 当前 |
+|------|------|----------|-------------|
+| Flip Conv | ✅ 300 | `~/training_outputs/2026.07.22_10.58.33_flip_up_new_conv_compare_230` | train_loss ≈ 0.0106；ref/virt RMSE 8.94 / 9.96 mm；刚度 492 N/m |
+| Vase Conv | 🔄 约 96/300 | `~/training_outputs/2026.07.22_14.38.26_vase_wiping_conv_compare_230` | 训完后填终盘；中断用 `scripts/train_resume.sh` |
+
+Flip Conv 与 Spec（见 `TRAINING_RESULTS_SPEC`）接近，位姿略好、刚度略差。交接总览：[`HANDOVER.zh.md`](HANDOVER.zh.md)。
+
+---
+
 ## 对比时看什么
 
 1. **train_loss** 曲线（平台高度、是否更抖）  

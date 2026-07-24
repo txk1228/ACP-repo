@@ -1,0 +1,162 @@
+defaults:
+  - _self_
+  - task: flip_up_sim_finetune.yaml
+
+name: flip_sim_ft
+
+output_dir: ${oc.env:PYRITE_CHECKPOINT_FOLDERS}
+_target_: diffusion_policy.workspace.train_diffusion_unet_image_workspace.TrainDiffusionUnetImageWorkspace
+
+task_name: ${task.name}
+shape_meta: ${task.shape_meta}
+exp_name: "sim_finetune"
+
+policy:
+  _target_: diffusion_policy.policy.diffusion_unet_timm_mod1_policy.DiffusionUnetTimmMod1Policy
+
+  shape_meta: ${shape_meta}
+
+  noise_scheduler:
+    _target_: diffusers.DDIMScheduler
+    num_train_timesteps: 50
+    beta_start: 0.0001
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    clip_sample: True
+    set_alpha_to_one: True
+    steps_offset: 0
+    prediction_type: epsilon
+
+  obs_encoder:
+    _target_: diffusion_policy.model.vision.timm_obs_encoder_with_force_spec.TimmObsEncoderWithForceSpec
+    shape_meta: ${shape_meta}
+    fuse_mode: modality-attention
+    reduce_pretrained_lr: True
+
+    vision_encoder_cfg:
+      model_name: 'vit_base_patch32_clip_224.openai'
+      pretrained: True
+      frozen: False
+      global_pool: ''
+      feature_aggregation: 'attention_pool_2d'
+      position_encoding: null
+      downsample_ratio: 32
+      transforms:
+        - type: RandomCrop
+          ratio: 0.95
+        - _target_: torchvision.transforms.ColorJitter
+          brightness: 0.3
+          contrast: 0.4
+          saturation: 0.5
+          hue: 0.08
+      use_group_norm: True
+      share_rgb_model: False
+      imagenet_norm: True
+
+    force_encoder_cfg:
+      model_name: 'vit-force'
+      pretrained: False
+      frozen: False
+      global_pool: ''
+      feature_aggregation: null
+      downsample_ratio: 8
+      use_group_norm: True
+      share_force_model: False
+      imagenet_norm: False
+      norm_spec:
+        is_norm: True
+        min: -18.4
+        max: 1.6
+      pad_spec: True
+
+  num_inference_steps: 16
+  diffusion_step_embed_dim: 32
+  down_dims: [256,512,1024]
+  kernel_size: 5
+  n_groups: 8
+  cond_predict_scale: True
+  input_pertub: 0.1
+  train_diffusion_n_samples: 1
+
+ema:
+  _target_: diffusion_policy.model.diffusion.ema_model.EMAModel
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
+
+dataloader:
+  batch_size: 32
+  num_workers: 8
+  shuffle: True
+  pin_memory: True
+  persistent_workers: True
+
+val_dataloader:
+  batch_size: 32
+  num_workers: 4
+  shuffle: False
+  pin_memory: True
+  persistent_workers: True
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 5.0e-5
+  betas: [0.95, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-6
+
+training:
+  device: "cuda:0"
+  seed: 42
+  debug: False
+  resume: True
+  lr_scheduler: cosine
+  lr_warmup_steps: 200
+  # 从真机 ckpt epoch=290 续训；launch 脚本会设 num_epochs=290+N
+  num_epochs: 320
+  log_gradient_norm: False
+  gradient_accumulate_every: 1
+  use_ema: True
+  freeze_encoder: False
+  rollout_every: 50
+  checkpoint_every: 5
+  val_every: 5
+  sample_every: 5
+  max_train_steps: null
+  max_val_steps: null
+  eval_metrics_max_batches: 10
+  eval_metrics_max_batches_final: null
+  tqdm_interval_sec: 1.0
+
+logging:
+  project: hierarchical-policy
+  resume: False
+  mode: offline
+  name: ${now:%Y.%m.%d-%H.%M.%S}_${task_name}_${name}
+  tags: ["${name}", "${task_name}", "${exp_name}"]
+  id: null
+  group: null
+
+checkpoint:
+  topk:
+    monitor_key: train_loss
+    mode: min
+    k: 5
+    format_str: 'epoch={epoch:04d}-train_loss={train_loss:.3f}.ckpt'
+  save_last_ckpt: True
+  save_last_snapshot: False
+
+multi_run:
+  run_dir: ${output_dir}/${now:%Y.%m.%d}_${now:%H.%M.%S}_${task_name}_${name}
+  wandb_name_base: ${now:%Y.%m.%d-%H.%M.%S}_${task_name}_${name}
+
+hydra:
+  job:
+    override_dirname: ${name}
+  run:
+    dir: ${output_dir}/${now:%Y.%m.%d}_${now:%H.%M.%S}_${task_name}_${name}
+  sweep:
+    dir: ${output_dir}/${now:%Y.%m.%d}_${now:%H.%M.%S}_${task_name}_${name}
+    subdir: ${hydra.job.num}

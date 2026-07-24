@@ -1,5 +1,5 @@
-# 数据集与训练产物
-data/
+# 数据集与训练产物（仅仓库根目录）
+/data/
 *.zip
 training_outputs/
 
@@ -9,6 +9,8 @@ logs/*
 *.log
 *.log.bak*
 *.bak_overflow
+MUJOCO_LOG.TXT
+train_progress_server.out
 .conda/
 __pycache__/
 *.pyc
@@ -22,3 +24,8 @@ wandb/
 
 # 系统
 .DS_Store
+
+# 仿真预览输出
+sim_acp/output/
+sim_acp/outputs/
+demo/output/

@@ -1,0 +1,54 @@
+<!-- MVP 场景：滑动末端 + 桌面/物体（仅视觉）+ 固定相机。 -->
+<mujoco model="acp_ee_plane">
+  <compiler angle="radian" inertiafromgeom="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+  <visual>
+    <global offwidth="640" offheight="480"/>
+  </visual>
+
+  <worldbody>
+    <light pos="0 0 2.5" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <light pos="1 1 2" dir="-0.3 -0.3 -1" diffuse="0.4 0.4 0.4"/>
+    <geom name="floor" type="plane" size="2 2 0.05" rgba="0.35 0.35 0.38 1"
+          contype="1" conaffinity="1"/>
+
+    <!-- 桌面 / 物体：仅视觉，不参与碰撞，避免干扰跟踪 -->
+    <body name="table" pos="0.45 0 0.0">
+      <geom name="table_top" type="box" size="0.35 0.25 0.02" pos="0 0 0.20"
+            rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
+    </body>
+    <body name="obj" pos="0.50 0.05 0.27">
+      <geom name="obj_box" type="box" size="0.04 0.03 0.03"
+            rgba="0.85 0.25 0.20 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <camera name="wrist_cam" pos="0.45 -0.55 0.55"
+            xyaxes="1 0 0 0 0.5 0.866" fovy="50"/>
+
+    <body name="ee_x" pos="0 0 0">
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1e-4 1e-4 1e-4"/>
+      <joint name="slide_x" type="slide" axis="1 0 0" range="-1.5 1.5" damping="5"/>
+      <body name="ee_y">
+        <inertial pos="0 0 0" mass="0.05" diaginertia="1e-4 1e-4 1e-4"/>
+        <joint name="slide_y" type="slide" axis="0 1 0" range="-1.5 1.5" damping="5"/>
+        <body name="ee_z">
+          <joint name="slide_z" type="slide" axis="0 0 1" range="0.05 1.5" damping="5"/>
+          <!-- 末端不与地板碰撞，保证位置伺服干净 -->
+          <geom name="ee_geom" type="sphere" size="0.04" mass="0.5"
+                rgba="0.2 0.6 0.9 1" contype="0" conaffinity="0"/>
+          <site name="ee_site" pos="0 0 0" size="0.01"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="act_x" joint="slide_x" kp="800" dampratio="1" ctrlrange="-1.5 1.5"/>
+    <position name="act_y" joint="slide_y" kp="800" dampratio="1" ctrlrange="-1.5 1.5"/>
+    <position name="act_z" joint="slide_z" kp="800" dampratio="1" ctrlrange="0.05 1.5"/>
+  </actuator>
+
+  <keyframe>
+    <key name="home" qpos="0.4 0 0.35" ctrl="0.4 0 0.35"/>
+  </keyframe>
+</mujoco>
