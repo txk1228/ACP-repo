@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 生成 GitHub 展示媒体：docs/media/{sim_flip_v2ft,virtual_target_stiffness_demo}.{mp4,gif,png}
+# 生成 GitHub 展示媒体：docs/media/sim_flip_v2ft.{mp4,gif}
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"

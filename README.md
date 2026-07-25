@@ -9,13 +9,13 @@
 
 **阶段一 Demo**（虚拟目标 + 变刚度，无需 GPU）：
 
-![ACP virtual target + stiffness demo](docs/media/virtual_target_stiffness_demo.gif)
+![ACP virtual target + stiffness demo](docs/media/virtual_target_stiffness_demo.png)
 
 **仿真翻方块 v2-ft**（三模态：腕部 RGB + wrench + pose → 微调策略）：
 
 ![ACP sim flip v2-ft trimodal](docs/media/sim_flip_v2ft.gif)
 
-MP4：[Demo](docs/media/virtual_target_stiffness_demo.mp4) · [仿真翻方块](docs/media/sim_flip_v2ft.mp4) · 说明 [`docs/media/README.md`](docs/media/README.md)
+[仿真翻方块 MP4](docs/media/sim_flip_v2ft.mp4) · 说明 [`docs/media/README.md`](docs/media/README.md)
 
 ---
 
@@ -94,7 +94,7 @@ conda activate acp-demo
 bash scripts/run_demo.sh
 ```
 
-代码入口：`demo/virtual_target_stiffness_demo.py`；预览 GIF/MP4 见 [`docs/media/`](docs/media/)。本地图：`demo/output/`（gitignore）。
+代码入口：`demo/virtual_target_stiffness_demo.py`；预览图见 [`docs/media/virtual_target_stiffness_demo.png`](docs/media/virtual_target_stiffness_demo.png)。本地输出：`demo/output/`（gitignore）。
 
 ---
 
@@ -322,7 +322,7 @@ ACP-repo/
 | [`docs/ACP_ALGORITHM_GUIDE.zh.md`](docs/ACP_ALGORITHM_GUIDE.zh.md) | 算法完整讲解 |
 | [`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md) | Spec 权重路径、loss、RMSE |
 | [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) | Conv 对比 yaml 与启动方式 |
-| [`docs/media/`](docs/media/) | **Demo / 仿真翻方块预览 GIF·MP4** |
+| [`docs/media/`](docs/media/) | **仿真翻方块预览 GIF·MP4 + Demo 静态图** |
 | [`sim_acp/README.md`](sim_acp/README.md) | **仿真操作手册 + 一键启动（日常入口）** |
 | [`docs/MUJOCO_ACP_SIM_MVP.zh.md`](docs/MUJOCO_ACP_SIM_MVP.zh.md) | 仿真架构、里程碑、验收口径 |
 | [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) | 真机适配方案 |

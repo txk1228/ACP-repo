@@ -107,10 +107,12 @@ def record_sim_flip(
     width: int = 640,
     height: int = 360,
     fps: int = 15,
-    frame_every: int = 8,
-    steps: int = 3600,
+    frame_every: int = 6,
+    steps: int = 5200,
     exec_horizon: int = 12,
     action_ds: int = 50,
+    flip_done_deg: float = 85.0,
+    hold_after_flip: int = 500,
 ) -> dict:
     from sim_acp.bridge.i7_mujoco_backend import I7MujocoBackend
     from sim_acp.bridge.policy_runner import FlipSpecPolicyRunner
@@ -158,6 +160,8 @@ def record_sim_flip(
     i_step = 0
     k_show: float | None = None
     frame_i = 0
+    flip_done_rad = math.radians(float(flip_done_deg))
+    hold_left = -1  # <0: 尚未达到彻底翻转；>=0: 剩余收尾步数
 
     tmp_root = Path(tempfile.mkdtemp(prefix="acp_media_flip_"))
     try:
@@ -200,7 +204,8 @@ def record_sim_flip(
             tip_cur = backend.tip_pos()
             print(
                 f"  [record i={i_step}] k0={act.k_low:.0f} "
-                f"tilt={math.degrees(max_tilt):.1f}deg frames={frame_i}"
+                f"tilt={math.degrees(max_tilt):.1f}deg "
+                f"hold={hold_left} frames={frame_i}"
             )
             for h in range(H):
                 wp = np.clip(virt_traj[h], clip_lo, clip_hi)
@@ -229,9 +234,18 @@ def record_sim_flip(
                     if i_step % frame_every == 0:
                         _capture()
                     i_step += 1
-                    if tilt >= math.radians(70.0):
-                        i_step = steps
-                        break
+                    # 达到彻底翻转后继续录 hold_after_flip 步，展示落稳
+                    if hold_left < 0 and tilt >= flip_done_rad:
+                        hold_left = int(hold_after_flip)
+                        print(
+                            f"  [flip-done] tilt={math.degrees(tilt):.1f}deg "
+                            f"→ hold {hold_left} steps"
+                        )
+                    if hold_left >= 0:
+                        hold_left -= 1
+                        if hold_left <= 0:
+                            i_step = steps
+                            break
                 tip_cur = wp.copy()
                 if i_step >= steps:
                     break
@@ -403,7 +417,11 @@ def main() -> int:
         ),
     )
     parser.add_argument("--skip-flip", action="store_true")
-    parser.add_argument("--skip-demo", action="store_true")
+    parser.add_argument(
+        "--demo-png",
+        action="store_true",
+        help="仅刷新 virtual_target_stiffness_demo.png（不生成 Demo gif/mp4）",
+    )
     parser.add_argument("--no-gif", action="store_true")
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=360)
@@ -414,21 +432,16 @@ def main() -> int:
     print(f"[media] out_dir={out_dir}")
 
     results = {}
-    if not args.skip_demo:
-        print("[media] recording stiffness demo…")
+    if args.demo_png:
+        print("[media] refresh stiffness demo PNG only…")
         results["demo"] = record_stiffness_demo(
-            out_dir / "virtual_target_stiffness_demo.mp4",
+            out_dir / "_unused_demo.mp4",
             out_dir / "virtual_target_stiffness_demo.png",
         )
-        print(" ", results["demo"])
-        if not args.no_gif:
-            g = maybe_make_gif(
-                out_dir / "virtual_target_stiffness_demo.mp4",
-                out_dir / "virtual_target_stiffness_demo.gif",
-                scale=560,
-                fps=8,
-            )
-            print(f"  gif={g}")
+        unused = out_dir / "_unused_demo.mp4"
+        if unused.is_file():
+            unused.unlink()
+        print(" ", {"png": results["demo"]["png"]})
 
     if not args.skip_flip:
         ckpt = Path(args.ckpt)
@@ -444,8 +457,8 @@ def main() -> int:
             height=int(args.height),
         )
         print(" ", results["flip"])
-        if results["flip"]["max_tilt_deg"] < 55.0:
-            print("[warn] tilt < 55° — video still saved, check ckpt/env")
+        if results["flip"]["max_tilt_deg"] < 85.0:
+            print("[warn] max tilt < 85° — cube may not look fully flipped")
         if not args.no_gif:
             g = maybe_make_gif(
                 out_dir / "sim_flip_v2ft.mp4",
