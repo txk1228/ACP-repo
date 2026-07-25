@@ -71,6 +71,8 @@ HYDRA_FULL_ERROR=1 accelerate launch train.py \
 
 ## 终盘结果（2026-07-25）
 
+进度面板终盘截图（Spec + Conv 四条均为 DONE）：[`docs/figures/train_progress_panel_final.png`](figures/train_progress_panel_final.png) · 读法见 [`TRAINING_RESULTS_SPEC.zh.md`](TRAINING_RESULTS_SPEC.zh.md)。
+
 | 任务 | 状态 | run 目录 | 终盘 |
 |------|------|----------|------|
 | Flip Conv | ✅ 300 | `~/training_outputs/2026.07.22_10.58.33_flip_up_new_conv_compare_230` | train_loss @299 ≈ **0.0106**；`latest.ckpt` ≈ epoch **290** |

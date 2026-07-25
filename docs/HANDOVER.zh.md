@@ -114,7 +114,7 @@ bash scripts/run_sim_flip.sh
 - `PYRITE_DATASET_FOLDERS=~/data/real_processed`
 - `PYRITE_CHECKPOINT_FOLDERS=~/training_outputs`
 
-断点续训示例见 `README.md`「断点续训」（四条正式 run 已满 300，一般无需再续）。
+断点续训示例见 `README.md` Step 3「断点续训」（四条正式 run 已满 300，一般无需再续）。
 
 ---
 

@@ -7,21 +7,11 @@
 
 ### 效果预览
 
-**阶段一 Demo**（虚拟目标 + 变刚度，无需 GPU）：
-
-![ACP virtual target + stiffness demo](docs/media/virtual_target_stiffness_demo.png)
-
-**仿真翻方块 v2-ft**（三模态 + 分屏变刚度面板：接触方向 `k_soft` 变软 / 正交 `k_hard` 保持）：
-
 ![ACP sim flip v2-ft trimodal](docs/media/sim_flip_v2ft.gif)
 
-**同一次录制的终盘刚度曲线**：
+**仿真翻方块 v2-ft**：左 MuJoCo + 腕部 RGB，右实时刚度面板。接触发生后软轴刚度 `k_soft` 降到正交 `k_hard` 之下、软轴 `û` 随接触转向，方块倾角 `tilt` 拉到约 90° —— **ACP 靠接触方向自适应变刚度完成翻转**。
 
-![v2-ft 终盘刚度曲线](docs/media/sim_flip_v2ft_stiffness.png)
-
-接触发生（`|f|` 抬升）后，软轴刚度 `k_soft` 降到正交 `k_hard` 之下、软轴方向 `û` 随接触转向，方块倾角 `tilt` 随之拉到约 90° —— **ACP 靠接触方向自适应变刚度把翻转做成**。
-
-[MP4](docs/media/sim_flip_v2ft.mp4) · [读图说明](docs/media/README.md)
+→ 终盘刚度曲线、tip 轨迹、阶段一 Demo 与读图说明，见 [**效果展示页**](docs/media/README.md)
 
 ---
 
@@ -34,12 +24,9 @@
 | **Step 0** | 先读交接总览，了解现状与主线 | [→ 交接总览](#step-0-先读交接总览) |
 | **Step 1** | 搭训练 / Demo 环境 | [→ 环境搭建](#step-1-环境搭建) |
 | **Step 2** | 跑通 Demo（阶段一，无需 GPU） | [→ 跑通-demo](#step-2-跑通-demo) |
-| **Step 3** | 训练：冒烟 → 完整（阶段二） | [→ 训练](#step-3-训练) |
-| **Step 4** | 用进度面板监控训练 | [→ 进度面板](#step-4-进度面板) |
-| **Step 5** | 断点续训（断电 / 中断后） | [→ 断点续训](#step-5-断点续训) |
-| **Step 6** | 看结果与 Spec/Conv 对比 | [→ 结果与对比](#step-6-结果与对比) |
-| **Step 7** | **MuJoCo 仿真翻方块**（`sim_acp/`，当前优先） | [→ 仿真翻方块](#step-7-仿真翻方块-sim_acp) |
-| **Step 8** | 真机适配（阶段三，未开始） | [→ 真机适配](#step-8-真机适配) |
+| **Step 3** | 训练（冒烟 → 完整 · 进度面板 · 续训 · 结果对比） | [→ 训练](#step-3-训练) |
+| **Step 4** | **MuJoCo 仿真翻方块**（`sim_acp/`，当前优先） | [→ 仿真翻方块](#step-4-仿真翻方块-sim_acp) |
+| **Step 5** | 真机适配（阶段三，未开始） | [→ 真机适配](#step-5-真机适配) |
 
 其余参考：[目录结构](#目录结构) ·  [文档导图](#文档导图) ·  [同步更新](#同步更新) ·  [License](#license)
 
@@ -100,13 +87,15 @@ conda activate acp-demo
 bash scripts/run_demo.sh
 ```
 
-代码入口：`demo/virtual_target_stiffness_demo.py`；预览图见 [`docs/media/virtual_target_stiffness_demo.png`](docs/media/virtual_target_stiffness_demo.png)。本地输出：`demo/output/`（gitignore）。
+代码入口：`demo/virtual_target_stiffness_demo.py`；效果图见 [效果展示页](docs/media/README.md)。本地输出：`demo/output/`（gitignore）。
 
 ---
 
 ## Step 3 训练
 
-阶段二。先冒烟短跑验证环境，再跑完整训练：
+阶段二：冒烟 → 完整训练 → 进度面板监控 → 断点续训 → 看结果与 Spec/Conv 对比。
+
+### 冒烟 → 完整训练
 
 ```bash
 conda activate pyrite
@@ -120,9 +109,7 @@ bash scripts/train_acp.sh spec       # 2. 完整 Spec 训练（论文主方法 /
 - 训练默认每 **10** 个 epoch 写入 `~/training_outputs/<run_dir>/checkpoints/latest.ckpt`。
 - Conv 对比（消融：ACP w/o FFT）的 yaml 与启动方式见 [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md)。
 
----
-
-## Step 4 进度面板
+### 进度面板
 
 代码：`scripts/train_progress_server.py`（纯标准库 HTTP 服务，读 `~/training_outputs/*/logs.json.txt` 与 `logs/train_*.log`）。
 
@@ -140,15 +127,13 @@ bash scripts/run_progress_panel.sh   # 一键启动（后台）
 
 面板展示 Spec / Conv 的 Flip、Vase 进度、loss 与物理 RMSE；训练日志需落在 `logs/`（如 `logs/train_vase_wiping_conv.log`）。
 
----
-
-## Step 5 断点续训
+### 断点续训
 
 > 断电 / 中断后接着跑。
 
 中断后**不要**再开一条全新命令从头训；应对**同一个 run 目录**设 `training.resume=true`，从 `latest.ckpt` 恢复 epoch / 优化器状态。
 
-### 流程
+**流程**
 
 ```bash
 # 1. 找到被中断的那次 run（按时间或面板里的路径）
@@ -161,7 +146,7 @@ ls ~/training_outputs/<run_dir>/checkpoints/latest.ckpt
 bash scripts/train_resume.sh <run_dir> <config-name> [与当初相同的 hydra 覆盖项...]
 ```
 
-### 常用示例
+**常用示例**
 
 ```bash
 # vase Spec（正式基线；也可不传路径，脚本有默认目录）
@@ -187,7 +172,7 @@ bash scripts/train_resume.sh \
   train_conv_compare_flip_workspace
 ```
 
-### 注意
+**注意**
 
 | 要点 | 说明 |
 |------|------|
@@ -197,18 +182,16 @@ bash scripts/train_resume.sh \
 | 已跑满 300 epoch | 续训会直接结束，无需再跑 |
 | 进度面板 | 续训日志继续写原 `logs.json.txt`，面板可接着看 |
 
----
+### 结果与对比
 
-## Step 6 结果与对比
-
-- Spec 终盘结果（权重路径、loss、RMSE）：[`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md)
+- Spec 终盘结果（权重路径、loss、RMSE）+ **进度面板终盘截图**：[`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md)
 - Conv 对比实验（yaml、启动命令、**Spec/Conv 终盘对照**）：[`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md)
 - 仓库内 JSON 快照：`docs/training_snapshots/`（`spec_runs_index.json` / `conv_runs_index.json` 及各 `*_eval_*.json`）
 - 离线补跑验证集 RMSE：`scripts/eval_val_metrics.py`
 
 ---
 
-## Step 7 仿真翻方块（`sim_acp/`）
+## Step 4 仿真翻方块（`sim_acp/`）
 
 > **仓内 Python MuJoCo 联调**（方案 B）：不改 `robot-control-v1.5`。  
 > 目录：[`sim_acp/`](sim_acp/) · 手册：[`sim_acp/README.md`](sim_acp/README.md) · 设计：[`docs/MUJOCO_ACP_SIM_MVP.zh.md`](docs/MUJOCO_ACP_SIM_MVP.zh.md)
@@ -242,13 +225,13 @@ bash scripts/run_sim_flip.sh help
 
 验收：**v2-ft** 同场景 max tilt ≥55°（腕部 `acp_wrist_cam`）；不承诺真机零样本。
 
-预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · [刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [读图说明](docs/media/README.md) · 重录 `bash scripts/make_github_media.sh`
+效果与读图：[效果展示页](docs/media/README.md)；重录录屏与曲线：`bash scripts/make_github_media.sh`
 
 ---
 
-## Step 8 真机适配
+## Step 5 真机适配
 
-> 阶段三：真机未开始；仿真链路与契约已在 Step 7 冻结，有机后换 `RealBackend`。
+> 阶段三：真机未开始；仿真链路与契约已在 Step 4 冻结，有机后换 `RealBackend`。
 
 1. **真机方案**：[`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) — `RealBackend` + `force_admittance`  
 2. 要点：右臂 + 锁底盘 + flip；方案 A；与 `sim_acp` 共用 `RobotBackend` 契约  
@@ -328,7 +311,7 @@ ACP-repo/
 | [`docs/ACP_ALGORITHM_GUIDE.zh.md`](docs/ACP_ALGORITHM_GUIDE.zh.md) | 算法完整讲解 |
 | [`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md) | Spec 权重路径、loss、RMSE |
 | [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) | Conv 对比 yaml 与启动方式 |
-| [`docs/media/`](docs/media/) | **仿真翻方块预览 + 终盘刚度曲线读图/指标说明** |
+| [`docs/media/README.md`](docs/media/README.md) | **效果展示页**：录屏、终盘刚度曲线、读图与判定 |
 | [`sim_acp/README.md`](sim_acp/README.md) | **仿真操作手册 + 一键启动（日常入口）** |
 | [`docs/MUJOCO_ACP_SIM_MVP.zh.md`](docs/MUJOCO_ACP_SIM_MVP.zh.md) | 仿真架构、里程碑、验收口径 |
 | [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) | 真机适配方案 |

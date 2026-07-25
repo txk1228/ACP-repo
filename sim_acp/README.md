@@ -29,7 +29,7 @@
 ![sim flip v2-ft](../docs/media/sim_flip_v2ft.gif)
 
 左：MuJoCo + 腕部 RGB；右：`|f|` / `|Δ|`、`k_soft` vs `k_hard`、软轴 `û` + `tilt`。  
-[MP4](../docs/media/sim_flip_v2ft.mp4) · [刚度曲线](../docs/media/sim_flip_v2ft_stiffness.png) · [读图说明](../docs/media/README.md) · 重录：`bash scripts/make_github_media.sh`
+[MP4](../docs/media/sim_flip_v2ft.mp4) · [效果展示页（终盘刚度曲线 + 读图）](../docs/media/README.md) · 重录：`bash scripts/make_github_media.sh`
 
 **判定**：接触段 `|f|` 抬升、`k_soft` < `k_hard` 且 `û` 随接触转向（ACP 方向性柔顺），max `tilt` ≥ 55°（本录屏约 90°）= 翻转成功。
 

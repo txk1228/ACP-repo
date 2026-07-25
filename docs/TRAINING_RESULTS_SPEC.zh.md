@@ -27,6 +27,12 @@
 
 **结论（Spec 基线）**：两边都已按论文 **300 epoch** 跑完；部署用各自 `latest.ckpt`（权重对应约 epoch 290 存盘点）即可，不必再训到「文件名写成 299」。
 
+### 终盘进度面板截图
+
+![ACP Training Progress 终盘](figures/train_progress_panel_final.png)
+
+本机面板：http://127.0.0.1:8765/（`bash scripts/run_progress_panel.sh`）。上图为 Spec + Conv 四条正式 run 全部完成后的终盘页面（2026-07-25）：四卡均为 DONE 100%、epoch 299，下方为 train loss 与物理量 RMSE 曲线。
+
 ---
 
 ## 1. Spec 是什么（和 Conv 差在哪）
@@ -67,10 +73,12 @@ accelerate launch train.py --config-name=train_spec_workspace task=vase_wiping_s
 
 可视化面板：
   http://127.0.0.1:8765/   # scripts/train_progress_server.py
+  终盘截图：docs/figures/train_progress_panel_final.png
 ```
 
 本仓库内快照副本（防目录被挪）：
 
+- `docs/figures/train_progress_panel_final.png` — 进度面板终盘截图（Spec+Conv 四条 DONE）
 - `docs/training_snapshots/flip_spec_eval_latest_val_metrics.json`
 - `docs/training_snapshots/vase_spec_eval_latest_val_metrics.json`
 - `docs/training_snapshots/spec_runs_index.json`
@@ -206,6 +214,8 @@ cd ~/ACP_fx/adaptive_compliance_policy/PyriteML
 python3 ~/ACP_fx/scripts/train_progress_server.py
 # → http://127.0.0.1:8765/
 ```
+
+终盘截图见上文「终盘进度面板截图」，文件：[`docs/figures/train_progress_panel_final.png`](figures/train_progress_panel_final.png)。
 
 ---
 
