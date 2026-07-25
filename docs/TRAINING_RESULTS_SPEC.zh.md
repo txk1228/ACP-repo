@@ -71,8 +71,10 @@ accelerate launch train.py --config-name=train_spec_workspace task=vase_wiping_s
 
 本仓库内快照副本（防目录被挪）：
 
+- `docs/training_snapshots/flip_spec_eval_latest_val_metrics.json`
 - `docs/training_snapshots/vase_spec_eval_latest_val_metrics.json`
 - `docs/training_snapshots/spec_runs_index.json`
+- Conv 对照快照见同目录 `conv_runs_index.json` / `*_conv_eval_*.json`
 
 ---
 
@@ -207,8 +209,7 @@ python3 ~/ACP_fx/scripts/train_progress_server.py
 
 ---
 
-## 7. 下一步（Conv 对比）
+## 7. Conv 对比（已完成）
 
-- **不要改** 现有 `train_spec_workspace.yaml` / `train_conv_workspace.yaml`。  
-- 使用新建的 compare 配置，见 [`TRAINING_CONV_COMPARE.zh.md`](TRAINING_CONV_COMPARE.zh.md)。  
-- 对比维度建议：同数据集、同 300 epoch、同 ViT 视觉；仅力编码 Spec↔Conv；vase 建议仍用 batch=32 以对齐显存条件。
+Flip + Vase Conv 均已跑满 300 epoch，终盘 Spec/Conv 对照见 [`TRAINING_CONV_COMPARE.zh.md`](TRAINING_CONV_COMPARE.zh.md)。  
+离线 RMSE：两任务上 Spec≈Conv；**最终以真机为准**。

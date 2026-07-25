@@ -51,7 +51,7 @@
 
 | 阶段 | 做什么 | 状态 |
 |------|--------|------|
-| 算法侧 | Spec/Conv 训练 | ✅ 见 `TRAINING_RESULTS_SPEC.zh.md` |
+| 算法侧 | Spec/Conv 训练 | ✅ 见 `TRAINING_RESULTS_SPEC.zh.md` / `TRAINING_CONV_COMPARE.zh.md` |
 | **仿真：翻方块** | `sim_acp/run_flip_cube_demo`（脚本+方案 A / `--policy`） | ✅ 脚本可翻；策略在环已接 |
 | 真机准备 | 力标定 + `force_admittance` 手推 | ⏳ 有机后再做 |
 | 真机闭环 | RealBackend + 同一 bridge | ⏳ 仿真契约冻结后 |

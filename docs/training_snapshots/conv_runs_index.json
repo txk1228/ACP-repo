@@ -1,0 +1,61 @@
+{
+  "archived_at": "2026-07-25",
+  "encoding": "conv_causal_no_fft",
+  "paper_role": "ablation_ACP_wo_FFT",
+  "paper_target_epochs": 300,
+  "epoch_index_range": [
+    0,
+    299
+  ],
+  "checkpoint_every": 10,
+  "latest_ckpt_epoch_pickle": 290,
+  "note": "Training completed through epoch 299. latest.ckpt is last in-range save (~290). eval_latest_val_metrics.json may be labeled epoch 300 (post-finish eval overflow), same pattern as some Spec runs.",
+  "runs": {
+    "flip_up_conv_compare": {
+      "role": "single_arm_canonical",
+      "run_dir": "/home/zj/training_outputs/2026.07.22_10.58.33_flip_up_new_conv_compare_230",
+      "dataset": "~/data/real_processed/flip_up_new_v5",
+      "config": "train_conv_compare_flip_workspace",
+      "obs_encoder": "TimmObsEncoderWithForce + causalconv",
+      "batch_size": 128,
+      "train_loss_epoch_299": 0.010612027107604912,
+      "latest_ckpt": "checkpoints/latest.ckpt",
+      "eval_at_epoch_290": {
+        "reference_pose_pos_rmse_mm": 9.03928279876709,
+        "virtual_target_pos_rmse_mm": 10.026940144598484,
+        "stiffness_rmse_Npm": 476.86517333984375,
+        "train_loss": 0.010559979861690884
+      },
+      "eval_latest": {
+        "epoch": 300,
+        "reference_pose_pos_rmse_mm": 8.937680162489414,
+        "virtual_target_pos_rmse_mm": 9.9596893414855,
+        "stiffness_rmse_Npm": 492.0390625,
+        "train_loss": 0.010612027107604912
+      }
+    },
+    "vase_wiping_conv_compare": {
+      "role": "dual_arm_canonical",
+      "run_dir": "/home/zj/training_outputs/2026.07.22_14.38.26_vase_wiping_conv_compare_230",
+      "dataset": "~/data/real_processed/vase_wiping_v6.3",
+      "config": "train_conv_compare_vase_workspace",
+      "obs_encoder": "TimmObsEncoderWithForce + causalconv",
+      "batch_size": 32,
+      "train_loss_epoch_299": 0.010166189850340198,
+      "latest_ckpt": "checkpoints/latest.ckpt",
+      "eval_at_epoch_290": {
+        "reference_pose_pos_rmse_mm": 22.525770589709282,
+        "virtual_target_pos_rmse_mm": 24.197906255722046,
+        "stiffness_rmse_Npm": 809.321533203125,
+        "train_loss": 0.010168593999346606
+      },
+      "eval_latest": {
+        "epoch": 300,
+        "reference_pose_pos_rmse_mm": 21.98069728910923,
+        "virtual_target_pos_rmse_mm": 24.027198553085327,
+        "stiffness_rmse_Npm": 864.8890380859375,
+        "train_loss": 0.010166189850340198
+      }
+    }
+  }
+}

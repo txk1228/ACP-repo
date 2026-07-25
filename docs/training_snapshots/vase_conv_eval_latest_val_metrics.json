@@ -1,0 +1,17 @@
+{
+  "reference_pose_pos_rmse_m": 0.02198069728910923,
+  "reference_pose_pos_rmse_mm": 21.98069728910923,
+  "virtual_target_pos_rmse_m": 0.024027198553085327,
+  "virtual_target_pos_rmse_mm": 24.027198553085327,
+  "stiffness_rmse_Npm": 864.8890380859375,
+  "reference pose pos RMSE (mm)": 21.98069728910923,
+  "virtual target pos RMSE (mm)": 24.027198553085327,
+  "stiffness RMSE (N/m)": 864.8890380859375,
+  "num_batches": 45,
+  "num_samples": 1416,
+  "action_dim": 38,
+  "horizon": 32,
+  "epoch": 300,
+  "final_train_loss": 0.010166189850340198,
+  "train_loss": 0.010166189850340198
+}

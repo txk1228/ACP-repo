@@ -31,7 +31,7 @@
 |------|------|------|
 | 阶段一 Demo | ✅ | 虚拟目标 + 变刚度可视化 |
 | 阶段二 Spec 训练 | ✅ | Flip-up + Vase wiping，300 epoch，见 [`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md) |
-| 阶段二 Conv 对比 | 🔄 | Flip Conv ✅；Vase Conv 训练中，见 [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) |
+| 阶段二 Conv 对比 | ✅ | Flip + Vase 各 300 epoch；Spec/Conv 终盘对照见 [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) |
 | **仿真 `sim_acp/`** | ✅ | **策略在仿真翻方块 PASS**（腕部 RGB + 微调）；[`sim_acp/README.md`](sim_acp/README.md) |
 | 阶段三 真机 | 📋 | 真机未开始；方案见 [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) |
 
@@ -41,7 +41,7 @@
 
 接手第一件事：通读 [`docs/HANDOVER.zh.md`](docs/HANDOVER.zh.md)（交接总览：进度、路径、续训、真机待办）。
 
-**建议主线**：Vase Conv 到 300 → Spec/Conv 对照 → **`sim_acp/` 仿真翻方块**（已通）→ 有机后按 [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) 做真机。
+**建议主线**：Spec/Conv 已对照归档 → **`sim_acp/` 仿真翻方块**（已通）→ 有机后按 [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) 做真机。
 
 ---
 
@@ -184,10 +184,9 @@ bash scripts/train_resume.sh \
 ## Step 6 结果与对比
 
 - Spec 终盘结果（权重路径、loss、RMSE）：[`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md)
-- Conv 对比实验（yaml、启动命令、终盘对照）：[`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md)
+- Conv 对比实验（yaml、启动命令、**Spec/Conv 终盘对照**）：[`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md)
+- 仓库内 JSON 快照：`docs/training_snapshots/`（`spec_runs_index.json` / `conv_runs_index.json` 及各 `*_eval_*.json`）
 - 离线补跑验证集 RMSE：`scripts/eval_val_metrics.py`
-
-Vase Conv 训完后：确认 epoch 299 + `latest.ckpt` → 用 `eval_*_val_metrics.json` 做 Spec/Conv 终盘对照 → 把数字补进 `TRAINING_CONV_COMPARE.zh.md`。
 
 ---
 
