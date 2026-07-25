@@ -29,7 +29,9 @@
 ![sim flip v2-ft](../docs/media/sim_flip_v2ft.gif)
 
 左：MuJoCo + 腕部 RGB；右：\|f\| / \|Δ\|、**k_soft vs k_hard**、soft-axis û + tilt。  
-[MP4](../docs/media/sim_flip_v2ft.mp4) · [刚度曲线](../docs/media/sim_flip_v2ft_stiffness.png) · 重录：`bash scripts/make_github_media.sh`
+[MP4](../docs/media/sim_flip_v2ft.mp4) · [刚度曲线](../docs/media/sim_flip_v2ft_stiffness.png) · [**读图与指标**](../docs/media/README.md#终盘刚度曲线怎么读sim_flip_v2ft_stiffnesspng) · 重录：`bash scripts/make_github_media.sh`
+
+**指标摘要**：tilt≥55°（本录屏~90°）= 翻成功；接触段 \|f\| 抬升；\(k_\text{soft}\) 相对 \(k_\text{hard}\) 更软且 soft û 随接触变化 = ACP 方向性柔顺。
 
 ---
 

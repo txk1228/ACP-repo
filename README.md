@@ -15,7 +15,9 @@
 
 ![ACP sim flip v2-ft trimodal](docs/media/sim_flip_v2ft.gif)
 
-[MP4](docs/media/sim_flip_v2ft.mp4) · [终盘刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [`docs/media/`](docs/media/)
+[MP4](docs/media/sim_flip_v2ft.mp4) · [终盘刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [**读图与指标说明**](docs/media/README.md#终盘刚度曲线怎么读sim_flip_v2ft_stiffnesspng)
+
+**终盘曲线读什么（摘要）**：①力尖峰=接触段 → ③\(k_\text{soft}\) 相对 \(k_\text{hard}\) 更软 → ④ soft \(\hat{u}\) 转向 + **tilt→~90°**=翻成功。名词：tip=工具尖点，tilt=方块倾角。详细指标表见上链。
 
 ---
 
@@ -236,7 +238,7 @@ bash scripts/run_sim_flip.sh help
 
 验收：**v2-ft** 同场景 max tilt ≥55°（腕部 `acp_wrist_cam`）；不承诺真机零样本。
 
-预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · [刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · 重录 `bash scripts/make_github_media.sh`
+预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · [刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [读图说明](docs/media/README.md#终盘刚度曲线怎么读sim_flip_v2ft_stiffnesspng) · 重录 `bash scripts/make_github_media.sh`
 
 ---
 
@@ -322,7 +324,7 @@ ACP-repo/
 | [`docs/ACP_ALGORITHM_GUIDE.zh.md`](docs/ACP_ALGORITHM_GUIDE.zh.md) | 算法完整讲解 |
 | [`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md) | Spec 权重路径、loss、RMSE |
 | [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) | Conv 对比 yaml 与启动方式 |
-| [`docs/media/`](docs/media/) | **仿真翻方块预览 GIF·MP4 + Demo 静态图** |
+| [`docs/media/`](docs/media/) | **仿真翻方块预览 + 终盘刚度曲线读图/指标说明** |
 | [`sim_acp/README.md`](sim_acp/README.md) | **仿真操作手册 + 一键启动（日常入口）** |
 | [`docs/MUJOCO_ACP_SIM_MVP.zh.md`](docs/MUJOCO_ACP_SIM_MVP.zh.md) | 仿真架构、里程碑、验收口径 |
 | [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) | 真机适配方案 |
