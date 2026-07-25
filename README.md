@@ -5,6 +5,18 @@
 - 论文主页：[adaptive-compliance.github.io](https://adaptive-compliance.github.io/)
 - 官方代码：[yifan-hou/adaptive_compliance_policy](https://github.com/yifan-hou/adaptive_compliance_policy)
 
+### 效果预览
+
+**阶段一 Demo**（虚拟目标 + 变刚度，无需 GPU）：
+
+![ACP virtual target + stiffness demo](docs/media/virtual_target_stiffness_demo.gif)
+
+**仿真翻方块 v2-ft**（三模态：腕部 RGB + wrench + pose → 微调策略）：
+
+![ACP sim flip v2-ft trimodal](docs/media/sim_flip_v2ft.gif)
+
+MP4：[Demo](docs/media/virtual_target_stiffness_demo.mp4) · [仿真翻方块](docs/media/sim_flip_v2ft.mp4) · 说明 [`docs/media/README.md`](docs/media/README.md)
+
 ---
 
 ## 上手路线（建议按顺序）
@@ -82,7 +94,7 @@ conda activate acp-demo
 bash scripts/run_demo.sh
 ```
 
-代码入口：`demo/virtual_target_stiffness_demo.py`，输出在 `demo/output/`。
+代码入口：`demo/virtual_target_stiffness_demo.py`；预览 GIF/MP4 见 [`docs/media/`](docs/media/)。本地图：`demo/output/`（gitignore）。
 
 ---
 
@@ -224,6 +236,8 @@ bash scripts/run_sim_flip.sh help
 
 验收：**v2-ft** 同场景 max tilt ≥55°（腕部 `acp_wrist_cam`）；不承诺真机零样本。
 
+预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · 重录 `bash scripts/make_github_media.sh --skip-demo`
+
 ---
 
 ## Step 8 真机适配
@@ -268,6 +282,7 @@ ACP-repo/
 │   ├── ACP_ALGORITHM_GUIDE.zh.md
 │   ├── TRAINING_RESULTS_SPEC.zh.md
 │   ├── TRAINING_CONV_COMPARE.zh.md
+│   ├── media/                       # ★ Demo / 仿真翻方块 GIF·MP4
 │   ├── figures/
 │   └── training_snapshots/
 │
@@ -276,6 +291,7 @@ ACP-repo/
 │   ├── setup_pyrite_env_cuda.sh
 │   ├── run_demo.sh
 │   ├── run_sim_flip.sh              # ★ 仿真一键启动（v1/v2/v2-ft）
+│   ├── make_github_media.sh         # 录制 Demo / 翻方块 GIF·MP4
 │   ├── train_acp.sh / train_resume.sh / ...
 │   ├── train_progress_server.py
 │   └── sync_to_github.sh
@@ -306,6 +322,7 @@ ACP-repo/
 | [`docs/ACP_ALGORITHM_GUIDE.zh.md`](docs/ACP_ALGORITHM_GUIDE.zh.md) | 算法完整讲解 |
 | [`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md) | Spec 权重路径、loss、RMSE |
 | [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) | Conv 对比 yaml 与启动方式 |
+| [`docs/media/`](docs/media/) | **Demo / 仿真翻方块预览 GIF·MP4** |
 | [`sim_acp/README.md`](sim_acp/README.md) | **仿真操作手册 + 一键启动（日常入口）** |
 | [`docs/MUJOCO_ACP_SIM_MVP.zh.md`](docs/MUJOCO_ACP_SIM_MVP.zh.md) | 仿真架构、里程碑、验收口径 |
 | [`docs/I7_ACP_ADAPTATION.zh.md`](docs/I7_ACP_ADAPTATION.zh.md) | 真机适配方案 |

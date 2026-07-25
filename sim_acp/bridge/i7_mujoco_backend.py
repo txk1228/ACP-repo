@@ -238,6 +238,8 @@ class I7MujocoBackend:
         )
 
         self._renderer = None
+        self._overview_renderer = None
+        self._overview_wh: tuple[int, int] | None = None
         self._step_count = 0
         # viewer.sync 节流：每 N 仿真步同步一次（1=每步；越大越快）
         self._viewer_sync_every = 5
@@ -629,18 +631,55 @@ class I7MujocoBackend:
             self._renderer.update_scene(self.data)
         return self._renderer.render().copy()
 
+    def render_overview_rgb(
+        self,
+        width: int = 720,
+        height: int = 480,
+        distance: float = 1.55,
+        azimuth: float = 135.0,
+        elevation: float = -22.0,
+    ) -> np.ndarray:
+        """外置自由机位 RGB（录屏用，不改 MJCF）。"""
+        w, h = int(width), int(height)
+        if self._overview_renderer is None or self._overview_wh != (w, h):
+            if self._overview_renderer is not None:
+                try:
+                    close_fn = getattr(self._overview_renderer, "close", None)
+                    if callable(close_fn):
+                        close_fn()
+                except Exception:
+                    pass
+            self._overview_renderer = self._mj.Renderer(self.model, height=h, width=w)
+            self._overview_wh = (w, h)
+
+        self._mj.mj_forward(self.model, self.data)
+        tip = self.tip_pos()
+        cube = self.cube_pos()
+        look = 0.55 * tip + 0.45 * cube
+        look[2] = max(float(look[2]), float(self.table_top_z()) + 0.05)
+
+        cam = self._mj.MjvCamera()
+        self._mj.mjv_defaultFreeCamera(self.model, cam)
+        cam.lookat[:] = look
+        cam.distance = float(distance)
+        cam.azimuth = float(azimuth)
+        cam.elevation = float(elevation)
+        self._overview_renderer.update_scene(self.data, camera=cam)
+        return self._overview_renderer.render().copy()
+
     def close(self) -> None:
         # 顺序：先关离屏 Renderer，再关 passive viewer。
         # 两者共用 GLFW 时乱序销毁会 SIGSEGV（MuJoCo 已知问题）。
-        renderer = self._renderer
-        self._renderer = None
-        if renderer is not None:
-            try:
-                close_fn = getattr(renderer, "close", None)
-                if callable(close_fn):
-                    close_fn()
-            except Exception:
-                pass
+        for attr in ("_overview_renderer", "_renderer"):
+            renderer = getattr(self, attr, None)
+            setattr(self, attr, None)
+            if renderer is not None:
+                try:
+                    close_fn = getattr(renderer, "close", None)
+                    if callable(close_fn):
+                        close_fn()
+                except Exception:
+                    pass
 
         viewer = self._viewer
         cm = self._viewer_cm
