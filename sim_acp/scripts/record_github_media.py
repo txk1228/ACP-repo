@@ -58,14 +58,14 @@ def _encode_mp4(frame_dir: Path, pattern: str, out_mp4: Path, fps: int) -> None:
 
 
 def _overlay_pip(overview_bgr: np.ndarray, wrist_rgb: np.ndarray) -> np.ndarray:
-    """右下角叠腕部 RGB + 标题条。"""
+    """左下角叠腕部 RGB（右侧留给刚度面板）。"""
     h, w = overview_bgr.shape[:2]
-    pip_w = max(160, w // 4)
-    pip_h = max(160, h // 4)
+    pip_w = max(140, w // 4)
+    pip_h = max(140, h // 4)
     wrist_bgr = cv2.cvtColor(wrist_rgb, cv2.COLOR_RGB2BGR)
     pip = cv2.resize(wrist_bgr, (pip_w, pip_h), interpolation=cv2.INTER_AREA)
-    x0 = w - pip_w - 16
-    y0 = h - pip_h - 16
+    x0 = 12
+    y0 = h - pip_h - 12
     overview_bgr[y0 : y0 + pip_h, x0 : x0 + pip_w] = pip
     cv2.rectangle(
         overview_bgr, (x0 - 2, y0 - 2), (x0 + pip_w + 1, y0 + pip_h + 1), (240, 240, 240), 2
@@ -87,7 +87,7 @@ def _draw_hud(frame_bgr: np.ndarray, tilt_deg: float, step: int, k_low: float | 
     cv2.rectangle(frame_bgr, (0, 0), (frame_bgr.shape[1], 36), (20, 20, 20), -1)
     label = f"ACP v2-ft trimodal  tilt={tilt_deg:5.1f}deg  step={step}"
     if k_low is not None:
-        label += f"  k={k_low:.0f}N/m"
+        label += f"  k_soft={k_low:.0f}N/m"
     cv2.putText(
         frame_bgr,
         label,
@@ -100,12 +100,178 @@ def _draw_hud(frame_bgr: np.ndarray, tilt_deg: float, step: int, k_low: float | 
     )
 
 
+class CompliancePanel:
+    """右侧实时面板：力 / k_soft vs k_hard / soft-axis + tilt。
+
+    直观表达 ACP 本质：接触方向（soft û）上 k 变软，正交方向 k_hard 保持高刚度。
+    """
+
+    def __init__(self, width: int = 420, height: int = 360, k_hard: float = 5000.0):
+        import matplotlib
+
+        matplotlib.use("Agg")
+        self.width = int(width)
+        self.height = int(height)
+        self.k_hard = float(k_hard)
+        self.steps: list[int] = []
+        self.fn: list[float] = []
+        self.k_soft: list[float] = []
+        self.delta_mm: list[float] = []
+        self.soft: list[np.ndarray] = []
+        self.tilt: list[float] = []
+        self._fig = None
+        self._axes = None
+        self._ax0b = None
+        self._ax2c = None
+
+    def push(
+        self,
+        step: int,
+        *,
+        force_xyz: np.ndarray,
+        k_soft: float,
+        soft_axis: np.ndarray,
+        delta_m: float,
+        tilt_deg: float,
+    ) -> None:
+        self.steps.append(int(step))
+        self.fn.append(float(np.linalg.norm(force_xyz)))
+        self.k_soft.append(float(k_soft))
+        self.delta_mm.append(float(delta_m) * 1000.0)
+        self.soft.append(np.asarray(soft_axis, dtype=float).reshape(3).copy())
+        self.tilt.append(float(tilt_deg))
+
+    def _style_ax(self, ax) -> None:
+        ax.set_facecolor("#1a1a1a")
+        ax.tick_params(colors="#cccccc", labelsize=7)
+        for spine in ax.spines.values():
+            spine.set_color("#555555")
+        ax.grid(True, alpha=0.25, color="#666666")
+
+    def render_bgr(self) -> np.ndarray:
+        import matplotlib.pyplot as plt
+
+        if self._fig is None:
+            dpi = 100
+            self._fig, self._axes = plt.subplots(
+                3,
+                1,
+                figsize=(self.width / dpi, self.height / dpi),
+                dpi=dpi,
+                constrained_layout=True,
+            )
+            self._fig.patch.set_facecolor("#111111")
+            self._ax0b = self._axes[0].twinx()
+            self._ax2c = self._axes[2].twinx()
+            for ax in list(self._axes) + [self._ax0b, self._ax2c]:
+                self._style_ax(ax)
+
+        ax0, ax1, ax2 = self._axes
+        ax0b, ax2c = self._ax0b, self._ax2c
+        for ax in (ax0, ax1, ax2, ax0b, ax2c):
+            ax.cla()
+            self._style_ax(ax)
+
+        if not self.steps:
+            blank = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            blank[:] = (17, 17, 17)
+            return blank
+
+        t = np.asarray(self.steps, dtype=float)
+        fn = np.asarray(self.fn, dtype=float)
+        ks = np.asarray(self.k_soft, dtype=float)
+        dmm = np.asarray(self.delta_mm, dtype=float)
+        soft = np.stack(self.soft, axis=0)
+        tilt = np.asarray(self.tilt, dtype=float)
+
+        # 1) force + compliance offset
+        ax0.set_title("Contact force & compliance offset", fontsize=8, color="#eeeeee", pad=2)
+        ax0.plot(t, fn, color="#4fc3f7", lw=1.2, label="|f| (N)")
+        ax0.set_ylabel("|f| (N)", fontsize=7, color="#4fc3f7")
+        ax0.tick_params(axis="y", labelcolor="#4fc3f7")
+        ax0b.plot(t, dmm, color="#ffb74d", lw=1.2, label="|Δ| (mm)")
+        ax0b.set_ylabel("|x_virt−x_ref| (mm)", fontsize=7, color="#ffb74d")
+        ax0b.tick_params(axis="y", colors="#ffb74d", labelsize=7)
+        ax0.legend(loc="upper left", fontsize=6, facecolor="#222", labelcolor="#eee")
+
+        # 2) k_soft (adaptive) vs k_hard (orthogonal fixed) — ACP 核心对照
+        ax1.set_title(
+            "ACP: soft-axis k drops; orthogonal k_hard stays high",
+            fontsize=8,
+            color="#eeeeee",
+            pad=2,
+        )
+        ax1.plot(t, ks, color="#ef5350", lw=1.4, label="k_soft (along û)")
+        ax1.axhline(
+            self.k_hard,
+            color="#66bb6a",
+            lw=1.3,
+            ls="--",
+            label=f"k_hard ⊥û (= {self.k_hard:.0f})",
+        )
+        ax1.set_ylabel("stiffness (N/m)", fontsize=7, color="#dddddd")
+        ax1.set_ylim(0.0, max(self.k_hard * 1.15, float(ks.max()) * 1.1, 1.0))
+        ax1.legend(loc="upper right", fontsize=6, facecolor="#222", labelcolor="#eee")
+
+        # 3) soft-axis direction + cube tilt
+        ax2.set_title(
+            "Soft axis û (= virt−ref / force) + cube tilt",
+            fontsize=8,
+            color="#eeeeee",
+            pad=2,
+        )
+        ax2.plot(t, soft[:, 0], color="#42a5f5", lw=1.0, label="ûx")
+        ax2.plot(t, soft[:, 1], color="#ab47bc", lw=1.0, label="ûy")
+        ax2.plot(t, soft[:, 2], color="#26a69a", lw=1.0, label="ûz")
+        ax2.set_ylabel("û (world)", fontsize=7, color="#dddddd")
+        ax2.set_ylim(-1.15, 1.15)
+        ax2.set_xlabel("sim step", fontsize=7, color="#dddddd")
+        ax2c.plot(t, tilt, color="#eeeeee", lw=1.3, label="tilt")
+        ax2c.set_ylabel("tilt (deg)", fontsize=7, color="#eeeeee")
+        ax2c.tick_params(axis="y", colors="#eeeeee", labelsize=7)
+        ax2.legend(loc="upper left", fontsize=6, facecolor="#222", labelcolor="#eee")
+
+        self._fig.canvas.draw()
+        rgba = np.asarray(self._fig.canvas.buffer_rgba())
+        bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
+        if bgr.shape[0] != self.height or bgr.shape[1] != self.width:
+            bgr = cv2.resize(bgr, (self.width, self.height), interpolation=cv2.INTER_AREA)
+        return bgr
+
+    def close(self) -> None:
+        if self._fig is not None:
+            import matplotlib.pyplot as plt
+
+            plt.close(self._fig)
+            self._fig = None
+            self._axes = None
+            self._ax0b = None
+            self._ax2c = None
+
+
+def _compose_split(left_bgr: np.ndarray, right_bgr: np.ndarray) -> np.ndarray:
+    h = max(left_bgr.shape[0], right_bgr.shape[0])
+    if left_bgr.shape[0] != h:
+        left_bgr = cv2.resize(left_bgr, (left_bgr.shape[1], h))
+    if right_bgr.shape[0] != h:
+        right_bgr = cv2.resize(right_bgr, (right_bgr.shape[1], h))
+    # 中间分隔线
+    sep = np.full((h, 4, 3), 60, dtype=np.uint8)
+    out = np.concatenate([left_bgr, sep, right_bgr], axis=1)
+    # yuv420p 要求偶数边
+    hh, ww = out.shape[:2]
+    if hh % 2 or ww % 2:
+        out = cv2.resize(out, (ww - ww % 2, hh - hh % 2))
+    return out
+
+
 def record_sim_flip(
     out_mp4: Path,
     ckpt: Path,
     *,
     width: int = 640,
     height: int = 360,
+    panel_width: int = 420,
     fps: int = 15,
     frame_every: int = 6,
     steps: int = 5200,
@@ -113,8 +279,11 @@ def record_sim_flip(
     action_ds: int = 50,
     flip_done_deg: float = 85.0,
     hold_after_flip: int = 500,
+    k_hard: float = 5000.0,
+    stiffness_png: Path | None = None,
 ) -> dict:
     from sim_acp.bridge.i7_mujoco_backend import I7MujocoBackend
+    from sim_acp.bridge.plot_compliance import save_compliance_plots
     from sim_acp.bridge.policy_runner import FlipSpecPolicyRunner
     from sim_acp.bridge.pose_buffer import PoseRingBuffer
     from sim_acp.bridge.rgb_buffer import RgbRingBuffer
@@ -127,6 +296,8 @@ def record_sim_flip(
     buf = WrenchRingBuffer(capacity=max(8000, runner.wrench_h + 10))
     pose_buf = PoseRingBuffer(capacity=max(16, runner.pose_h + 4))
     rgb_buf = RgbRingBuffer(capacity=max(8, runner.rgb_h + 2), h=rh, w=rw)
+    panel = CompliancePanel(width=panel_width, height=height, k_hard=k_hard)
+    hist: list[dict] = []
 
     for _ in range(80):
         backend.inject_force_W(np.zeros(3))
@@ -158,10 +329,13 @@ def record_sim_flip(
     clip_hi = np.array([0.90, -0.40, 1.00])
     max_tilt = backend.cube_tilt_rad()
     i_step = 0
-    k_show: float | None = None
+    k_show = float(k_hard)
+    soft_show = np.zeros(3)
+    x_ref_show = p0.copy()
+    x_virt_show = p0.copy()
     frame_i = 0
     flip_done_rad = math.radians(float(flip_done_deg))
-    hold_left = -1  # <0: 尚未达到彻底翻转；>=0: 剩余收尾步数
+    hold_left = -1
 
     tmp_root = Path(tempfile.mkdtemp(prefix="acp_media_flip_"))
     try:
@@ -171,10 +345,23 @@ def record_sim_flip(
             wrist = backend.render_rgb()
             tilt = math.degrees(backend.cube_tilt_rad())
             max_tilt = max(max_tilt, backend.cube_tilt_rad())
-            bgr = cv2.cvtColor(overview, cv2.COLOR_RGB2BGR)
-            bgr = _overlay_pip(bgr, wrist)
-            _draw_hud(bgr, tilt, i_step, k_show)
-            cv2.imwrite(str(tmp_root / f"frame_{frame_i:05d}.png"), bgr)
+            st = backend.read_state()
+            f = st.wrench_W[:3].copy()
+            delta = float(np.linalg.norm(x_virt_show - x_ref_show))
+            panel.push(
+                i_step,
+                force_xyz=f,
+                k_soft=float(k_show),
+                soft_axis=soft_show,
+                delta_m=delta,
+                tilt_deg=tilt,
+            )
+            left = cv2.cvtColor(overview, cv2.COLOR_RGB2BGR)
+            left = _overlay_pip(left, wrist)
+            _draw_hud(left, tilt, i_step, k_show)
+            right = panel.render_bgr()
+            frame = _compose_split(left, right)
+            cv2.imwrite(str(tmp_root / f"frame_{frame_i:05d}.png"), frame)
             frame_i += 1
 
         _capture()
@@ -209,11 +396,13 @@ def record_sim_flip(
             )
             for h in range(H):
                 wp = np.clip(virt_traj[h], clip_lo, clip_hi)
-                x_ref = ref_traj[min(h, len(ref_traj) - 1)]
+                x_ref = np.asarray(ref_traj[min(h, len(ref_traj) - 1)], dtype=float).reshape(3)
                 k_show = float(k_traj[min(h, len(k_traj) - 1)])
-                soft_axis_from_policy(
+                soft_show = soft_axis_from_policy(
                     x_ref, wp, force_xyz=backend.read_state().wrench_W[:3]
                 )
+                x_ref_show = x_ref.copy()
+                x_virt_show = wp.copy()
                 for s in range(action_ds):
                     if i_step >= steps:
                         break
@@ -229,12 +418,24 @@ def record_sim_flip(
                         rgb_buf.push(backend.render_rgb())
                     backend.write_tip_pos(tip_ref, st.timestamp_ns)
                     backend.step(realtime=False)
+                    tip_now = backend.tip_pos()
                     tilt = backend.cube_tilt_rad()
                     max_tilt = max(max_tilt, tilt)
+                    hist.append(
+                        {
+                            "f": st.wrench_W[:3].copy(),
+                            "x_ref": x_ref.copy(),
+                            "x_virt": tip_ref.copy(),
+                            "x_tip": tip_now.copy(),
+                            "tilt_deg": math.degrees(tilt),
+                            "k_low": k_show,
+                            "soft_axis": soft_show.copy(),
+                        }
+                    )
                     if i_step % frame_every == 0:
+                        x_virt_show = tip_ref.copy()
                         _capture()
                     i_step += 1
-                    # 达到彻底翻转后继续录 hold_after_flip 步，展示落稳
                     if hold_left < 0 and tilt >= flip_done_rad:
                         hold_left = int(hold_after_flip)
                         print(
@@ -251,7 +452,18 @@ def record_sim_flip(
                     break
         _capture()
         _encode_mp4(tmp_root, "frame_%05d.png", out_mp4, fps=fps)
+
+        if stiffness_png is not None and hist:
+            save_compliance_plots(
+                hist,
+                stiffness_png,
+                k_low=float(np.median([h["k_low"] for h in hist])),
+                k_high=float(k_hard),
+                title="v2-ft trimodal flip — soft-axis k vs orthogonal k_hard",
+                delta_clip_m=0.0,
+            )
     finally:
+        panel.close()
         try:
             backend.close()
         except Exception:
@@ -263,6 +475,7 @@ def record_sim_flip(
         "frames": frame_i,
         "max_tilt_deg": math.degrees(max_tilt),
         "bytes": out_mp4.stat().st_size if out_mp4.is_file() else 0,
+        "stiffness_png": str(stiffness_png) if stiffness_png else None,
     }
 
 
@@ -425,6 +638,8 @@ def main() -> int:
     parser.add_argument("--no-gif", action="store_true")
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=360)
+    parser.add_argument("--panel-width", type=int, default=420)
+    parser.add_argument("--k-hard", type=float, default=5000.0)
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -448,23 +663,26 @@ def main() -> int:
         if not ckpt.is_file():
             print(f"[error] missing ckpt: {ckpt}")
             return 1
-        print(f"[media] recording v2-ft flip… ckpt={ckpt}")
-        # EGL 无头更稳；若失败可改 MUJOCO_GL=glfw + DISPLAY
+        print(f"[media] recording v2-ft flip (split + compliance panel)… ckpt={ckpt}")
         results["flip"] = record_sim_flip(
             out_dir / "sim_flip_v2ft.mp4",
             ckpt,
             width=int(args.width),
             height=int(args.height),
+            panel_width=int(args.panel_width),
+            k_hard=float(args.k_hard),
+            stiffness_png=out_dir / "sim_flip_v2ft_stiffness.png",
         )
         print(" ", results["flip"])
         if results["flip"]["max_tilt_deg"] < 85.0:
             print("[warn] max tilt < 85° — cube may not look fully flipped")
         if not args.no_gif:
+            # 分屏更宽：GIF 缩到约 900px 宽，控制体积
             g = maybe_make_gif(
                 out_dir / "sim_flip_v2ft.mp4",
                 out_dir / "sim_flip_v2ft.gif",
-                scale=480,
-                fps=10,
+                scale=720,
+                fps=8,
             )
             print(f"  gif={g}")
 

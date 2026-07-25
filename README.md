@@ -11,11 +11,11 @@
 
 ![ACP virtual target + stiffness demo](docs/media/virtual_target_stiffness_demo.png)
 
-**仿真翻方块 v2-ft**（三模态：腕部 RGB + wrench + pose → 微调策略）：
+**仿真翻方块 v2-ft**（三模态 + **分屏变刚度面板**：接触方向 \(k_\text{soft}\) 变软 / 正交 \(k_\text{hard}\) 保持）：
 
 ![ACP sim flip v2-ft trimodal](docs/media/sim_flip_v2ft.gif)
 
-[仿真翻方块 MP4](docs/media/sim_flip_v2ft.mp4) · 说明 [`docs/media/README.md`](docs/media/README.md)
+[MP4](docs/media/sim_flip_v2ft.mp4) · [终盘刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [`docs/media/`](docs/media/)
 
 ---
 
@@ -236,7 +236,7 @@ bash scripts/run_sim_flip.sh help
 
 验收：**v2-ft** 同场景 max tilt ≥55°（腕部 `acp_wrist_cam`）；不承诺真机零样本。
 
-预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · 重录 `bash scripts/make_github_media.sh --skip-demo`
+预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · [刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · 重录 `bash scripts/make_github_media.sh`
 
 ---
 

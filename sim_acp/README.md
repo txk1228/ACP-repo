@@ -24,11 +24,12 @@
 
 **结论**：真机权重零样本翻不起来是 **域差**（GoPro/UR5e vs i7+腕部相机），不是链路坏了。主杠杆 = **仿真专家数据 + 微调**。
 
-### 效果预览（v2-ft）
+### 效果预览（v2-ft，分屏变刚度）
 
 ![sim flip v2-ft](../docs/media/sim_flip_v2ft.gif)
 
-[MP4](../docs/media/sim_flip_v2ft.mp4) · 重录：`bash scripts/make_github_media.sh --skip-demo`
+左：MuJoCo + 腕部 RGB；右：\|f\| / \|Δ\|、**k_soft vs k_hard**、soft-axis û + tilt。  
+[MP4](../docs/media/sim_flip_v2ft.mp4) · [刚度曲线](../docs/media/sim_flip_v2ft_stiffness.png) · 重录：`bash scripts/make_github_media.sh`
 
 ---
 
