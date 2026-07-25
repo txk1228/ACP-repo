@@ -11,13 +11,17 @@
 
 ![ACP virtual target + stiffness demo](docs/media/virtual_target_stiffness_demo.png)
 
-**仿真翻方块 v2-ft**（三模态 + **分屏变刚度面板**：接触方向 \(k_\text{soft}\) 变软 / 正交 \(k_\text{hard}\) 保持）：
+**仿真翻方块 v2-ft**（三模态 + 分屏变刚度面板：接触方向 `k_soft` 变软 / 正交 `k_hard` 保持）：
 
 ![ACP sim flip v2-ft trimodal](docs/media/sim_flip_v2ft.gif)
 
-[MP4](docs/media/sim_flip_v2ft.mp4) · [终盘刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [**读图与指标说明**](docs/media/README.md#终盘刚度曲线怎么读sim_flip_v2ft_stiffnesspng)
+**同一次录制的终盘刚度曲线**：
 
-**终盘曲线读什么（摘要）**：①力尖峰=接触段 → ③\(k_\text{soft}\) 相对 \(k_\text{hard}\) 更软 → ④ soft \(\hat{u}\) 转向 + **tilt→~90°**=翻成功。名词：tip=工具尖点，tilt=方块倾角。详细指标表见上链。
+![v2-ft 终盘刚度曲线](docs/media/sim_flip_v2ft_stiffness.png)
+
+接触发生（`|f|` 抬升）后，软轴刚度 `k_soft` 降到正交 `k_hard` 之下、软轴方向 `û` 随接触转向，方块倾角 `tilt` 随之拉到约 90° —— **ACP 靠接触方向自适应变刚度把翻转做成**。
+
+[MP4](docs/media/sim_flip_v2ft.mp4) · [读图说明](docs/media/README.md)
 
 ---
 
@@ -238,7 +242,7 @@ bash scripts/run_sim_flip.sh help
 
 验收：**v2-ft** 同场景 max tilt ≥55°（腕部 `acp_wrist_cam`）；不承诺真机零样本。
 
-预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · [刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [读图说明](docs/media/README.md#终盘刚度曲线怎么读sim_flip_v2ft_stiffnesspng) · 重录 `bash scripts/make_github_media.sh`
+预览：[GIF](docs/media/sim_flip_v2ft.gif) · [MP4](docs/media/sim_flip_v2ft.mp4) · [刚度曲线](docs/media/sim_flip_v2ft_stiffness.png) · [读图说明](docs/media/README.md) · 重录 `bash scripts/make_github_media.sh`
 
 ---
 
