@@ -139,6 +139,25 @@ bash scripts/run_sim_flip.sh
 
 控制栈：`/home/zj/robot-control-v1.5`（与 ACP-repo 分离；部署机路径以实际为准）。
 
+### 本机未入库：双臂擦拭实验线 `sim_vase/`
+
+- **位置**：仅本机 `~/ACP_fx/sim_vase/`（**未推 GitHub**）；说明见同目录 `README.md` 与 `docs/MUJOCO_VASE_SIM_SPIKE.zh.md`。
+- **定位**：实验 spike，**不是**交接主线；交接主线仍是翻方块 → 真机 flip。
+- **已做到**：双 tip 脚本擦固定花瓶；双腕 RGB；双臂方案 A（接触 / 扫角 / 柔顺 PASS）。
+- **未做**：Vase Spec 策略闭环、仿真示教落盘与微调、软布与论文级擦拭成功率。
+
+相对已交付的单臂翻方块，双臂擦拭仿真难点主要在：
+
+| 难点 | 说明 |
+|------|------|
+| 双臂契约翻倍 | 观测/动作按臂各一份（策略侧约 2×19）；不能直接复用 `sim_acp` 的单臂 backend / 场景 XML |
+| 持续双边接触 | 要左右同时贴面、力落在带内、周向扫角达标；比「一次 tip-over + tilt」更容易单侧掉接触 |
+| 成功口径更碎 | 当前只验接触步数 / 力带 / 扫角 / 方案 A；**没有**擦净率等任务语义指标 |
+| 进策略闭环更长 | 真机 Vase Spec 不能当仿真零样本结论；还需双 RGB+双 wrench+双 pose 落盘 → VT 标注 → 微调 |
+| 隔离成本 | 必须独立 `_acp_vase_scene.xml` 与 `DualI7MujocoBackend`，否则会污染已交付的 flip 链路 |
+
+有人要续做擦拭仿真时：先在本机跑 `bash scripts/run_sim_vase.sh`，确认是否入库再动 `sim_acp/` / 真机优先级。
+
 ---
 
 ## 7. 接手检查清单
@@ -160,6 +179,6 @@ bash scripts/run_sim_flip.sh
 | 仓库 Owner | GitHub `txk1228` |
 | 本机用户 | `zj` @ 4090 工作站 |
 | 交接点 | 算法可复现 + Spec/Conv 基线权重 + 仿真翻方块；真机未做 |
-| 不在本仓 | 原始大数据集、G 级 checkpoint、conda 环境本体 |
+| 不在本仓 | 原始大数据集、G 级 checkpoint、conda 环境本体；本机另有未入库 `sim_vase/`（见 §6） |
 
 有疑问：本文 → `README.md` → 对应 `docs/*.zh.md`。
