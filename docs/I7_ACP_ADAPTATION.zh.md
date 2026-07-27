@@ -47,6 +47,7 @@
 ## 2. 推荐主线（一句话）
 
 > **当前（真机有物理限制）**：先走 [`MUJOCO_ACP_SIM_MVP.zh.md`](MUJOCO_ACP_SIM_MVP.zh.md)——**单臂翻方块**（脚本+方案 A，再接 Flip Spec），冻结与真机同构的 `RobotBackend`。  
+> 仿真里注入力 demo 仅为方案 A 单元测试；主线是翻方块。  
 > **之后（有真机窗口）**：右臂 + 锁底盘 + flip + **方案 A** → 只换 `RealBackend` 上实机。
 
 | 阶段 | 做什么 | 状态 |

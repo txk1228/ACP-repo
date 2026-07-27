@@ -2,6 +2,7 @@
 
 > **已定案**：**方案 B** — 仅在 ACP 仓内用 Python `mujoco` 跑仿真与桥接，**不改** `robot-control-v1.5`。  
 > **仿真主目标**：**单臂翻方块** — 从脚本专家到 **Flip Spec 策略在仿真内可翻**（tilt ≥55°）。  
+> **注入力 demo**（`run_acp_effect_demo`）仅为方案 A 单元测试，不是主线任务。  
 > **非目标**：论文级真机成功率、Isaac、改 robot-control C++。
 
 关联：[`I7_ACP_ADAPTATION.zh.md`](I7_ACP_ADAPTATION.zh.md)（真机；`RobotBackend` 契约一致，日后只换 RealBackend）。  
@@ -37,7 +38,7 @@
 
 | 暂不承诺 | 原因 |
 |----------|------|
-| 真机零样本翻成功率 | GoPro/UR5e/点指 vs i7+腕部相机 |
+| 真机零样本翻成功率 | UR5e+腕部 GoPro（鱼眼）+ATI vs i7 仿真腕部相机+接触力 |
 | 仿真数字孪生 1:1 | 联调验证公式与接口，非动力学复刻 |
 
 ### 1.2 成功标准（当前 Done）
@@ -140,6 +141,14 @@ v1 翻物阶段用刚性 tip 跟踪以保证翻起；力轨迹仍入库供 VT �
 
 ## 4. 我们完成了什么（v1→v2-ft）
 
+> **三者是递进验收，不是三条并列方案**：v1 用脚本证明「仿真场景能翻」；v2 用真机 ckpt 证明「三模态链路通」但因域差翻不稳；v2-ft 用仿真成功数据微调，才是「策略在同域可翻」的交付形态。
+
+| 版本 | 控制 | RGB | 权重 | 验收 |
+|------|------|-----|------|------|
+| **v1** | 固定轨迹脚本 | 无 | 无策略 | tilt ≥55°（场景可行性） |
+| **v2** | Flip Spec 策略 | 腕部真渲染 | 真机 ckpt（零样本） | 推理通 + 有位移（链路正确性） |
+| **v2-ft** | Flip Spec 策略 | 腕部真渲染 | **仿真微调 ckpt** | tilt ≥55° + 真 RGB（交付） |
+
 ### 4.1 场景与接触（`i7_scene.py`）
 
 - 桌 + 自由方块 + i7 右臂（本机 MJCF）  
@@ -156,7 +165,7 @@ v1 翻物阶段用刚性 tip 跟踪以保证翻起；力轨迹仍入库供 VT �
 ### 4.3 v2 三模态闭环
 
 - `FlipSpecPolicyRunner`：RGB + wrench + pose → `x_ref / x_virt / k_low`  
-- 真机 ckpt **零样本**：推理通、有位移，**不翻**（域差预期）  
+- 真机 ckpt **零样本**：推理通、有位移；但由于域差（同为腕部视角，但 UR5e+GoPro 鱼眼+ATI ≠ i7 MuJoCo 腕部相机+接触力），翻转不稳定，因此阶段目标是“链路通”，**不是**“翻成功验收”  
 - 入口：`--policy`
 
 ### 4.4 仿真数据 + 微调（v2-ft 主杠杆）
@@ -172,13 +181,49 @@ flowchart LR
 
 | 步骤 | 脚本 | 产出 |
 |------|------|------|
-| 采集 | `record_flip_episodes.py` | ≥50 成功 ep；RGB/wrench/pose |
-| 标注 | `label_virtual_target.py` | `ts_pose_virtual_target_0`, `stiffness_0` |
-| 微调 | `finetune_flip_spec.py` | 真机 ckpt +30 epoch |
-| 评测 | `--require-flip` | 5/5 PASS，~70° |
+| 采集 | `record_flip_episodes.py` | 由 **v1 刚性专家**在 i7 仿真里翻方块；仅保存 `tilt ≥ 55°` 的成功 episode；RGB/wrench/pose 时间序列 |
+| 标注（VT） | `label_virtual_target.py` | 对每个时间步用 `VirtualTargetEstimator` 计算虚拟目标 `x_virt` 与刚度标量 `k_low`，写入 `ts_pose_virtual_target_0`, `stiffness_0` |
+| 微调 | `finetune_flip_spec.py` | 从真机 Flip Spec ckpt 继续 `resume` 训练，在仿真数据集 `flip_up_sim_v1` 上额外训练（默认 +30 epoch） |
+| 评测 | `--require-flip` | 强制使用**真 RGB**并验收 `max tilt ≥ 55°`；当前 5/5 ~70° |
 
 数据集：`$PYRITE_DATASET_FOLDERS/flip_up_sim_v1`  
 微调 ckpt：`~/training_outputs/2026.07.24_16.16.52_flip_up_sim_flip_sim_ft/checkpoints/latest.ckpt`
+
+### 4.4b 关键口径
+
+> 目的：把 v1→v2→v2-ft 的成败原因说清；避免把 `--fake-rgb` 等调试开关当成结论。
+
+#### VT 标注
+
+| 项 | 说明 |
+|----|------|
+| 全称 | Virtual Target（虚拟目标） |
+| 为什么需要 | Flip Spec 要学 `x_virt` + `k_low`；raw 只有 RGB / pose / wrench，没有这两项标签 |
+| 怎么做 | `label_virtual_target.py` → 官方 `VirtualTargetEstimator`，按位姿 + 工具系 wrench 逐帧算 |
+| 写回字段 | `ts_pose_virtual_target_0`，`stiffness_0` |
+
+#### 微调
+
+| 项 | 说明 |
+|----|------|
+| 脚本 | `finetune_flip_spec.py` |
+| 起点 | **真机 Flip Spec ckpt**（resume，不是从零训） |
+| 数据 | 仿真成功 episode `flip_up_sim_v1`（已 VT 标注） |
+| 在学什么 | 把权重校准到 i7 仿真域的 RGB / wrench / 接触分布 |
+| 结果 | v2-ft：同域下 `x_virt` / `k_low` 可执行，tilt ≥55° |
+
+#### 领域差（i7 仿真 vs UR5e 真机）
+
+**共同点**：真机示教与仿真策略输入都是**腕部视角 RGB**（真机：UR5e 腕部 GoPro 鱼眼；仿真：`acp_wrist_cam`）。  
+**域差不在「腕部 vs 外置」**，而在同腕部视角下的分布差异：
+
+| 维度 | 真机 | 仿真 | 影响 |
+|------|------|------|------|
+| 机器人 / 接触 | UR5e + 真实末端 | i7 + `acp_tip_ball` | 接触历史不同 |
+| 相机 | GoPro 鱼眼 ~60Hz | MuJoCo 针孔腕部渲染 | 外观 / FOV / 光照不同 |
+| 力觉 | ATI Mini45 六维力/力矩 ~7kHz | MuJoCo 接触力合成 wrench | 力谱不同；采集做 7× 上采样对齐格式 |
+
+**结论**：v2 = 链路通、有位移，翻转不稳；v2-ft = 仿真成功 episode → VT 标注 → 仿真域微调。
 
 ### 4.5 演示增强
 
@@ -247,7 +292,7 @@ pip install mujoco   # 已在 pyrite 环境
 | 风险 | 缓解 |
 |------|------|
 | 仿真 wrench ≠ ATI 7kHz | 微调必须用仿真力分布 |
-| 腕部相机 ≠ GoPro | 接受；本阶段以仿真 PASS 为准 |
+| 仿真腕部渲染 ≠ 真机腕部 GoPro 鱼眼 | 同为腕部视角，外观/FOV 仍不同；本阶段以仿真 PASS 为准 |
 | i7 夹爪 ≠ 论文点指 | tip 球 + 专家轨迹可学 |
 | 零样本不翻 | 文档明确；走 v2-ft |
 | viewer 退出 SIGSEGV | `--render` 结束 `os._exit`；Renderer 有序 close |
