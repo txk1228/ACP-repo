@@ -1,11 +1,11 @@
 # ACP 复现交接说明
 
-> 快照时间：2026-07-25（UTC+8）  
+> 快照时间：2026-07-27（UTC+8）  
 > 背景：负责人约 **8 月 1 日**返校，**真机复现未启动**；算法侧 Demo + Spec + Conv 对比均已完成；仿真翻方块（`sim_acp/`）已通。  
-> 仓库（Private）：https://github.com/txk1228/ACP-repo  
+> 仓库（Public）：https://github.com/txk1228/ACP-repo  
 > 本机工作区：`/home/zj/ACP_fx`（RTX 4090）
 
-接手前请让仓库 Owner（`txk1228`）在 GitHub **Settings → Collaborators** 添加账号并接受邀请。
+直接 `git clone` 即可；若需推送权限，再让 Owner（`txk1228`）在 GitHub **Settings → Collaborators** 添加账号。
 
 ---
 
@@ -143,7 +143,7 @@ bash scripts/run_sim_flip.sh
 
 ## 7. 接手检查清单
 
-- [ ] GitHub Collaborator 已接受，能 clone 私有仓  
+- [ ] 能 clone 公开仓 `https://github.com/txk1228/ACP-repo`（推送再加 Collaborator）  
 - [ ] 能登录 4090 站，看到 `~/ACP_fx`、`~/data/real_processed`、`~/training_outputs`  
 - [ ] `conda activate pyrite` + `source scripts/setup_env.sh` 正常  
 - [ ] 四条规范 run 的 `checkpoints/latest.ckpt` 存在  
