@@ -308,7 +308,7 @@ ACP-repo/
 | [`docs/HANDOVER.zh.md`](docs/HANDOVER.zh.md) | **交接总览**：进度、路径、续训、真机待办（先读） |
 | [`docs/REPRODUCTION.zh.md`](docs/REPRODUCTION.zh.md) | 从 Demo 到完整训练的步骤 |
 | [`docs/ACP_DATA_FLOW.zh.md`](docs/ACP_DATA_FLOW.zh.md) | 按数据流读核心代码 |
-| [`docs/ACP_ALGORITHM_GUIDE.zh.md`](docs/ACP_ALGORITHM_GUIDE.zh.md) | 算法完整讲解 |
+| [`docs/ACP_ALGORITHM_GUIDE.zh.md`](docs/ACP_ALGORITHM_GUIDE.zh.md) | 算法原理说明 |
 | [`docs/TRAINING_RESULTS_SPEC.zh.md`](docs/TRAINING_RESULTS_SPEC.zh.md) | Spec 权重路径、loss、RMSE |
 | [`docs/TRAINING_CONV_COMPARE.zh.md`](docs/TRAINING_CONV_COMPARE.zh.md) | Conv 对比 yaml 与启动方式 |
 | [`docs/media/README.md`](docs/media/README.md) | **效果展示页**：录屏、终盘刚度曲线、读图与判定 |

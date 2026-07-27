@@ -1,6 +1,6 @@
-# ACP 核心代码学习：按数据流走一遍
+# ACP 核心代码导读：按数据流走一遍
 
-> 学习方法：**按数据怎么流来学**，不按文件目录死记。  
+> 读法：按数据怎么流来读，不按文件目录硬记。  
 > 官方代码路径前缀：`adaptive_compliance_policy/`
 
 ---
@@ -261,7 +261,7 @@ controller.set_observation(obs_task["obs"])
 
 ---
 
-## 学习顺序（推荐）
+## 推荐阅读顺序
 
 | 顺序 | 文件 | 重点看什么 | 预计时间 |
 |------|------|-----------|----------|
@@ -288,5 +288,6 @@ controller.set_observation(obs_task["obs"])
 
 ## 配套文档
 
-- `docs/ACP_FEISHU_STUDY.zh.md`：论文研读笔记（网络结构、数据清洗/对齐、增强、信息注入）
-- `docs/ACP_ALGORITHM_GUIDE.zh.md`：算法原理讲解
+- `docs/ACP_ALGORITHM_GUIDE.zh.md`：算法原理说明
+- `docs/HANDOVER.zh.md`：交接总览与主线
+- `docs/I7_ACP_ADAPTATION.zh.md`：真机适配与桥接思路
