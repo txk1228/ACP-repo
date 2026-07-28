@@ -214,10 +214,11 @@ source scripts/setup_env.sh
 # 可选：export ACP_I7_MODEL_ROOT=/path/to/robot-control-v1.5/model_new
 # 可选：export DISPLAY=:1
 
-bash scripts/run_sim_flip.sh              # ★ 默认：v2-ft + 窗口 + 循环
+bash scripts/run_sim_flip.sh              # ★ 默认：v2-ft + MuJoCo 窗口 + 循环
 bash scripts/run_sim_flip.sh v1           # 脚本专家
 bash scripts/run_sim_flip.sh v2           # 真机 ckpt 零样本（验链路）
 bash scripts/run_sim_flip.sh v2-ft-once   # 微调策略单轮
+bash scripts/run_sim_flip.sh v2-ft-live   # ACP Live 实时分屏（增强演示，与录屏版并行）
 bash scripts/run_sim_flip.sh help
 ```
 

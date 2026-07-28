@@ -49,8 +49,10 @@ bash scripts/run_sim_flip.sh
 bash scripts/run_sim_flip.sh v1            # 脚本专家
 bash scripts/run_sim_flip.sh v1-loop       # 脚本循环
 bash scripts/run_sim_flip.sh v2            # 真机 ckpt 零样本（验链路）
-bash scripts/run_sim_flip.sh v2-ft         # 微调策略循环（同默认）
-bash scripts/run_sim_flip.sh v2-ft-once    # 微调策略单轮
+bash scripts/run_sim_flip.sh v2-ft         # 微调策略 + MuJoCo 窗口（同默认，GitHub 原版）
+bash scripts/run_sim_flip.sh v2-ft-once    # 微调策略单轮 + MuJoCo 窗口
+bash scripts/run_sim_flip.sh v2-ft-live    # ACP Live 实时分屏（接触高亮，与录屏版并行）
+bash scripts/run_sim_flip.sh v2-ft-live-once
 bash scripts/run_sim_flip.sh v2-ft-headless  # 无头评测 PASS/FAIL
 bash scripts/run_sim_flip.sh record        # 录制专家数据
 bash scripts/run_sim_flip.sh label         # VT 标注
@@ -86,9 +88,13 @@ bash scripts/run_sim_flip.sh v2-ft
 |------|------|-------------|------|
 | **v1** | `run_sim_flip.sh v1` | 无 RGB；脚本航点 + 刚性 tip | tilt ≥55° |
 | **v2** | `run_sim_flip.sh v2` | 腕部 RGB + wrench + pose → 真机 Spec | 推理通 + 有位移；**不宣称翻成功** |
-| **v2-ft** | `run_sim_flip.sh v2-ft` | 同上 + 微调 ckpt | **tilt ≥55°**（真 RGB） |
+| **v2-ft** | `run_sim_flip.sh v2-ft` | 同上 + 微调 ckpt；**MuJoCo 主窗口** | **tilt ≥55°**（真 RGB） |
+| **v2-ft-live** | `run_sim_flip.sh v2-ft-live` | 同上；**ACP Live 分屏**（6:4 + 接触阶段） | tilt ≈85° + hold |
 
 **v2-ft 执行**（对齐真机 runner）：每次推理开环执行 **12** 个路点，间隔 **50** 仿真步。
+
+- **GitHub 录屏 / gif**：`v2-ft` + `bash scripts/make_github_media.sh` → `docs/media/sim_flip_v2ft.*`
+- **实时增强演示**：`v2-ft-live`（不写录屏产物，RGB 落盘 `sim_acp/outputs/live_rgb_ft/`）
 
 ---
 
@@ -104,7 +110,7 @@ bash scripts/run_sim_flip.sh v2-ft
 | `acp_obj` | 自由方块 |
 | wrench | mesh 接触力 → 工具系（微调用仿真力分布） |
 
-样张：`sim_acp/outputs/wrist_rgb/`、`sim_acp/outputs/wrist_rgb_ft/`
+样张：`sim_acp/outputs/wrist_rgb/`、`sim_acp/outputs/wrist_rgb_ft/`（v2-ft）、`sim_acp/outputs/live_rgb_ft/`（v2-ft-live）
 
 ---
 

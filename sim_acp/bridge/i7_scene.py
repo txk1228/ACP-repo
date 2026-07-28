@@ -21,6 +21,9 @@ TIP_RADIUS = 0.012
 # 腕部相机（Gripper_Right 局部系）：略靠腕侧、俯视接触区
 WRIST_CAM_POS = (0.018, 0.010, 0.052)
 WRIST_CAM_FOVY = 55.0
+# MuJoCo 离屏渲染上限（<visual><global offwidth/offheight>）
+OFFSCREEN_MAX_W = 2560
+OFFSCREEN_MAX_H = 1440
 
 _EE_MESH_GEOMS = (
     "Gripper_Right_visual",
@@ -114,7 +117,7 @@ def ensure_i7_acp_scene() -> Path:
 
   <visual>
     <headlight diffuse="0.6 0.6 0.6" ambient="0.15 0.15 0.15" specular="0 0 0"/>
-    <global offwidth="640" offheight="480" azimuth="145" elevation="-22"/>
+    <global offwidth="{OFFSCREEN_MAX_W}" offheight="{OFFSCREEN_MAX_H}" azimuth="145" elevation="-22"/>
   </visual>
 
   <asset>

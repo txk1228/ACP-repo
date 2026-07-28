@@ -276,6 +276,8 @@ def run_policy_flip(backend, args, runner=None) -> int:
     from sim_acp.bridge.rgb_buffer import RgbRingBuffer
     from sim_acp.bridge.virtual_target import soft_axis_from_policy
     from sim_acp.bridge.wrench_buffer import WrenchRingBuffer
+    from sim_acp.bridge.i7_scene import OFFSCREEN_MAX_H, OFFSCREEN_MAX_W
+    from sim_acp.scripts.record_github_media import classify_contact_phase
 
     backend.set_tip_clamp(False)
     if runner is None:
@@ -289,6 +291,169 @@ def run_policy_flip(backend, args, runner=None) -> int:
     rgb_out = Path(args.rgb_dump_dir)
     if use_cam:
         rgb_out.mkdir(parents=True, exist_ok=True)
+    show_wrist = bool(getattr(args, "show_wrist_rgb", False)) and use_cam
+    show_live = bool(getattr(args, "show_live_panel", False)) and use_cam
+    wrist_window = str(getattr(args, "wrist_window_name", "ACP Wrist RGB"))
+    wrist_sync_every = max(1, int(getattr(args, "wrist_sync_every", 20)))
+    live_window = str(getattr(args, "live_window_name", "ACP Live"))
+    live_sync_every = max(1, int(getattr(args, "live_sync_every", 6)))
+    live_w = int(getattr(args, "live_width", 600))
+    live_h = int(getattr(args, "live_height", 480))
+    live_panel_w = int(getattr(args, "live_panel_width", 400))
+    live_overview_zoom = float(getattr(args, "live_overview_zoom", 1.22))
+    live_render_scale = float(getattr(args, "live_render_scale", 2.5))
+    live_panel_render_scale = float(getattr(args, "live_panel_render_scale", 2.0))
+    hold_after_flip = max(0, int(getattr(args, "hold_after_flip", 500)))
+    flip_done_rad = math.radians(float(getattr(args, "flip_done_deg", 85.0)))
+    cv2 = None
+    wrist_window_ok = False
+    live_window_ok = False
+    live_panel = None
+    x_ref_show = None
+    x_virt_show = None
+    k_show = float(args.k_high)
+    soft_show = np.zeros(3, dtype=float)
+    rgb_diff_show = 0.0
+    last_rgb_for_diff = None
+    if show_wrist:
+        try:
+            import cv2 as _cv2
+
+            cv2 = _cv2
+            cv2.namedWindow(wrist_window, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(wrist_window, rw, rh)
+            wrist_window_ok = True
+        except Exception as exc:
+            print(f"  [warn] wrist RGB 小窗打开失败: {exc}")
+            show_wrist = False
+    if show_live:
+        try:
+            if cv2 is None:
+                import cv2 as _cv2
+
+                cv2 = _cv2
+            from sim_acp.scripts.record_github_media import (
+                CompliancePanel,
+                _compose_split,
+                _draw_hud,
+                _overlay_pip,
+            )
+
+            cv2.namedWindow(live_window, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(live_window, live_w + live_panel_w + 4, live_h)
+            live_panel = CompliancePanel(
+                width=live_panel_w,
+                height=live_h,
+                k_hard=float(args.k_high),
+                render_scale=live_panel_render_scale,
+            )
+            live_window_ok = True
+        except Exception as exc:
+            print(f"  [warn] 实时分屏窗口打开失败: {exc}")
+            show_live = False
+
+    def _show_wrist(frame_rgb) -> None:
+        nonlocal wrist_window_ok
+        if not show_wrist or not wrist_window_ok or cv2 is None or frame_rgb is None:
+            return
+        try:
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            cv2.imshow(wrist_window, frame_bgr)
+            cv2.waitKey(1)
+        except Exception as exc:
+            print(f"  [warn] wrist RGB 小窗更新失败: {exc}")
+            wrist_window_ok = False
+
+    def _show_live(frame_rgb) -> None:
+        nonlocal live_window_ok
+        if (
+            not show_live
+            or not live_window_ok
+            or cv2 is None
+            or live_panel is None
+            or frame_rgb is None
+            or x_ref_show is None
+            or x_virt_show is None
+        ):
+            return
+        try:
+            from sim_acp.scripts.record_github_media import (
+                _center_crop_zoom,
+                _compose_split,
+                _draw_hud,
+                _overlay_pip,
+                classify_contact_phase,
+            )
+
+            render_w = min(int(round(live_w * live_render_scale)), OFFSCREEN_MAX_W)
+            render_h = min(int(round(live_h * live_render_scale)), OFFSCREEN_MAX_H)
+            overview = backend.render_overview_rgb(
+                width=render_w,
+                height=render_h,
+                distance=1.12,
+            )
+            left = cv2.cvtColor(overview, cv2.COLOR_RGB2BGR)
+            left = _center_crop_zoom(left, zoom=live_overview_zoom)
+            if left.shape[1] != live_w or left.shape[0] != live_h:
+                left = cv2.resize(
+                    left, (live_w, live_h), interpolation=cv2.INTER_AREA
+                )
+            pip_side = max(120, live_w // 3)
+            pip_render = min(
+                int(round(pip_side * live_render_scale * 1.15)),
+                OFFSCREEN_MAX_W,
+            )
+            wrist_hi = backend.render_rgb(width=pip_render, height=pip_render)
+            left = _overlay_pip(left, wrist_hi)
+            tilt_deg = math.degrees(backend.cube_tilt_rad())
+            _draw_hud(
+                left,
+                tilt_deg,
+                i_step,
+                float(k_show),
+                contact_state=contact_state_show,
+                contact_detail=contact_detail_show,
+            )
+            live_panel.push(
+                i_step,
+                force_xyz=backend.read_state().wrench_W[:3].copy(),
+                k_soft=float(k_show),
+                soft_axis=np.asarray(soft_show, dtype=float).reshape(3),
+                delta_m=float(np.linalg.norm(np.asarray(x_virt_show) - np.asarray(x_ref_show))),
+                tilt_deg=tilt_deg,
+                rgb_diff=float(rgb_diff_show),
+            )
+            try:
+                right = live_panel.render_bgr()
+            except Exception as panel_exc:
+                right = np.zeros((live_h, live_panel_w, 3), dtype=np.uint8)
+                right[:] = (18, 18, 18)
+                cv2.putText(
+                    right,
+                    "panel fallback",
+                    (18, 36),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (220, 220, 220),
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.putText(
+                    right,
+                    str(panel_exc)[:48],
+                    (18, 72),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    (140, 140, 255),
+                    1,
+                    cv2.LINE_AA,
+                )
+            frame = _compose_split(left, right)
+            cv2.imshow(live_window, frame)
+            cv2.waitKey(1)
+        except Exception as exc:
+            print(f"  [warn] 实时分屏窗口更新失败: {exc}")
+            live_window_ok = False
 
     exec_h = int(getattr(args, "exec_horizon", 12))
     ds_steps = int(getattr(args, "action_ds", 50))
@@ -316,6 +481,8 @@ def run_policy_flip(backend, args, runner=None) -> int:
     rgb0 = None
     if use_cam:
         rgb0 = backend.render_rgb()
+        last_rgb_for_diff = rgb0.copy()
+        _show_wrist(rgb0)
         for _ in range(max(2, runner.rgb_h)):
             rgb_buf.push(rgb0)
     for _ in range(max(2, runner.rgb_h)):
@@ -328,9 +495,23 @@ def run_policy_flip(backend, args, runner=None) -> int:
         pose_buf.push(p)
         buf.push(st0.wrench_W)
         if use_cam:
-            rgb_buf.push(backend.render_rgb())
+            rgb_now = backend.render_rgb()
+            if last_rgb_for_diff is not None:
+                rgb_diff_show = float(
+                    np.mean(
+                        np.abs(
+                            rgb_now.astype(np.float32)
+                            - last_rgb_for_diff.astype(np.float32)
+                        )
+                    )
+                )
+            last_rgb_for_diff = rgb_now.copy()
+            rgb_buf.push(rgb_now)
+            _show_wrist(rgb_now)
 
     p0 = backend.tip_pos().copy()
+    x_ref_show = p0.copy()
+    x_virt_show = p0.copy()
     clip_lo = np.array([0.55, -0.70, 0.75])
     clip_hi = np.array([0.90, -0.40, 1.00])
     max_tilt = backend.cube_tilt_rad()
@@ -342,6 +523,17 @@ def run_policy_flip(backend, args, runner=None) -> int:
     i_step = 0
     total_steps = int(args.steps)
     aborted_viewer = False
+    hold_left = -1
+    contacted_started = False
+    contact_state_show = "PRE"
+    contact_detail_show = "approach, no contact yet"
+
+    if show_live and use_cam:
+        try:
+            first_rgb = rgb0 if rgb0 is not None else backend.render_rgb()
+            _show_live(first_rgb)
+        except Exception as exc:
+            print(f"  [warn] 实时分屏窗口首帧失败: {exc}")
 
     print(
         f"[flip-policy {'v2-ft' if require_flip else 'v2'}] "
@@ -355,8 +547,35 @@ def run_policy_flip(backend, args, runner=None) -> int:
 
     while i_step < total_steps:
         st = backend.read_state()
+        f_now = st.wrench_W[:3]
+        fn_now = float(np.linalg.norm(f_now))
+        delta_mm_now = float(
+            np.linalg.norm(np.asarray(x_virt_show) - np.asarray(x_ref_show)) * 1000.0
+        )
+        contact_state_show, contacted_started, contact_detail_show = classify_contact_phase(
+            force_norm=fn_now,
+            k_soft=float(k_show),
+            k_hard=float(args.k_high),
+            delta_mm=delta_mm_now,
+            contacted_started=contacted_started,
+        )
         if use_cam:
-            rgb_buf.push(backend.render_rgb())
+            rgb_now = backend.render_rgb()
+            if last_rgb_for_diff is not None:
+                rgb_diff_show = float(
+                    np.mean(
+                        np.abs(
+                            rgb_now.astype(np.float32)
+                            - last_rgb_for_diff.astype(np.float32)
+                        )
+                    )
+                )
+            last_rgb_for_diff = rgb_now.copy()
+            rgb_buf.push(rgb_now)
+            if (i_step % wrist_sync_every) == 0:
+                _show_wrist(rgb_now)
+            if (i_step % live_sync_every) == 0:
+                _show_live(rgb_now)
         pose_hist = pose_buf.stack_last(runner.pose_h)
         if pose_hist.shape[0] >= 2:
             pose_delta_sum = float(
@@ -395,6 +614,9 @@ def run_policy_flip(backend, args, runner=None) -> int:
             f"|Δpose_hist|={pose_delta_sum*1000:.1f}mm "
             f"infer={act.inference_s:.2f}s"
         )
+        x_ref_show = np.asarray(ref_traj[0], dtype=float).reshape(3).copy()
+        x_virt_show = np.asarray(clipped[0], dtype=float).reshape(3).copy()
+        k_show = float(act.k_low)
         if use_cam and n_infer % max(1, int(args.rgb_save_every)) == 0:
             p = rgb_buf.save_latest(rgb_out / f"rgb_{i_step:05d}.png")
             if p is not None:
@@ -408,6 +630,10 @@ def run_policy_flip(backend, args, runner=None) -> int:
             soft_axis = soft_axis_from_policy(
                 x_ref, wp, force_xyz=backend.read_state().wrench_W[:3]
             )
+            x_ref_show = np.asarray(x_ref, dtype=float).reshape(3).copy()
+            x_virt_show = np.asarray(wp, dtype=float).reshape(3).copy()
+            k_show = k_low
+            soft_show = soft_axis.copy()
             for s in range(ds_steps):
                 if i_step >= total_steps:
                     break
@@ -415,12 +641,39 @@ def run_policy_flip(backend, args, runner=None) -> int:
                 tip_ref = (1.0 - a) * tip_cur + a * wp
                 backend.inject_force_W(np.zeros(3))
                 st = backend.read_state()
+                f_now = st.wrench_W[:3]
+                fn_now = float(np.linalg.norm(f_now))
+                delta_mm_now = float(
+                    np.linalg.norm(np.asarray(x_virt_show) - np.asarray(x_ref_show)) * 1000.0
+                )
+                contact_state_show, contacted_started, contact_detail_show = classify_contact_phase(
+                    force_norm=fn_now,
+                    k_soft=float(k_show),
+                    k_hard=float(args.k_high),
+                    delta_mm=delta_mm_now,
+                    contacted_started=contacted_started,
+                )
                 pose_tcp = st.pose_xyzquat.copy()
                 pose_tcp[:3] = backend.tip_pos()
                 buf.push(st.wrench_W)
                 pose_buf.push(pose_tcp)
                 if use_cam and (i_step % max(1, int(args.rgb_every)) == 0):
-                    rgb_buf.push(backend.render_rgb())
+                    rgb_step = backend.render_rgb()
+                    if last_rgb_for_diff is not None:
+                        rgb_diff_show = float(
+                            np.mean(
+                                np.abs(
+                                    rgb_step.astype(np.float32)
+                                    - last_rgb_for_diff.astype(np.float32)
+                                )
+                            )
+                        )
+                    last_rgb_for_diff = rgb_step.copy()
+                    rgb_buf.push(rgb_step)
+                    if (i_step % wrist_sync_every) == 0:
+                        _show_wrist(rgb_step)
+                    if (i_step % live_sync_every) == 0:
+                        _show_live(rgb_step)
                 backend.write_tip_pos(tip_ref, st.timestamp_ns)
                 if not backend.step(realtime=False):
                     aborted_viewer = True
@@ -442,12 +695,17 @@ def run_policy_flip(backend, args, runner=None) -> int:
                     }
                 )
                 i_step += 1
-                if require_flip and tilt >= math.radians(70.0):
+                if require_flip and hold_left < 0 and tilt >= flip_done_rad:
+                    hold_left = hold_after_flip
                     print(
-                        f"  early stop tilt={math.degrees(tilt):.1f}deg at i={i_step}"
+                        f"  [flip-done] tilt={math.degrees(tilt):.1f}deg "
+                        f"at i={i_step} → hold {hold_left} steps"
                     )
-                    i_step = total_steps
-                    break
+                if hold_left >= 0:
+                    hold_left -= 1
+                    if hold_left <= 0:
+                        i_step = total_steps
+                        break
             tip_cur = wp.copy()
             if i_step >= total_steps:
                 break
@@ -524,6 +782,22 @@ def run_policy_flip(backend, args, runner=None) -> int:
         print(f"  k_low range: [{k_series.min():.0f}, {k_series.max():.0f}] N/m")
         if use_cam:
             print(f"  RGB dumps: {rgb_out}")
+    keep_windows = bool(getattr(args, "loop", False))
+    if wrist_window_ok and cv2 is not None and not keep_windows:
+        try:
+            cv2.destroyWindow(wrist_window)
+        except Exception:
+            pass
+    if live_window_ok and cv2 is not None and not keep_windows:
+        try:
+            cv2.destroyWindow(live_window)
+        except Exception:
+            pass
+    if live_panel is not None:
+        try:
+            live_panel.close()
+        except Exception:
+            pass
     return 0 if ok else 2
 
 
@@ -655,6 +929,73 @@ def main() -> int:
         type=int,
         default=5,
         help="MuJoCo viewer 每 N 仿真步 sync 一次（越大越快）",
+    )
+    parser.add_argument(
+        "--show-wrist-rgb",
+        action="store_true",
+        help="弹出一个 OpenCV 小窗实时查看腕部 RGB",
+    )
+    parser.add_argument(
+        "--wrist-sync-every",
+        type=int,
+        default=20,
+        help="每 N 仿真步刷新一次腕部 RGB 小窗",
+    )
+    parser.add_argument(
+        "--wrist-window-name",
+        type=str,
+        default="ACP Wrist RGB",
+        help="腕部 RGB 小窗标题",
+    )
+    parser.add_argument(
+        "--show-live-panel",
+        action="store_true",
+        help="弹出分屏实时界面：外置机位 + 腕部 RGB 画中画 + 刚度面板",
+    )
+    parser.add_argument(
+        "--live-sync-every",
+        type=int,
+        default=6,
+        help="每 N 仿真步刷新一次分屏实时界面",
+    )
+    parser.add_argument("--live-width", type=int, default=600)
+    parser.add_argument("--live-height", type=int, default=480)
+    parser.add_argument(
+        "--live-render-scale",
+        type=float,
+        default=2.5,
+        help="离屏超采样倍数（2.5=高画质默认，更清晰但更耗 GPU）",
+    )
+    parser.add_argument("--live-panel-width", type=int, default=400)
+    parser.add_argument(
+        "--live-panel-render-scale",
+        type=float,
+        default=2.0,
+        help="右侧曲线面板内部超采样倍数",
+    )
+    parser.add_argument(
+        "--live-overview-zoom",
+        type=float,
+        default=1.22,
+        help="左侧 demo 中心裁切放大倍数（>1 裁掉四周留白，主体更满）",
+    )
+    parser.add_argument(
+        "--live-window-name",
+        type=str,
+        default="ACP Live",
+        help="分屏实时界面窗口标题",
+    )
+    parser.add_argument(
+        "--flip-done-deg",
+        type=float,
+        default=85.0,
+        help="达到该倾角后认为已基本翻过，进入 hold 阶段",
+    )
+    parser.add_argument(
+        "--hold-after-flip",
+        type=int,
+        default=500,
+        help="翻过阈值后继续运行多少仿真步，保证物体彻底翻稳",
     )
     args = parser.parse_args()
     if args.k_low is not None:

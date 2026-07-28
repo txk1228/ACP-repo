@@ -57,13 +57,86 @@ def _encode_mp4(frame_dir: Path, pattern: str, out_mp4: Path, fps: int) -> None:
     tmp.replace(out_mp4)
 
 
+def classify_contact_phase(
+    *,
+    force_norm: float,
+    k_soft: float,
+    k_hard: float,
+    delta_mm: float,
+    contacted_started: bool,
+    f_on_n: float = 1.5,
+    f_hold_n: float = 0.6,
+    f_exit_n: float = 0.35,
+    k_soft_ratio: float = 0.92,
+    delta_on_mm: float = 0.8,
+) -> tuple[str, bool, str]:
+    """接触阶段判定。
+
+    - PRE：尚未发生真实接触（必须 |f| 超过 f_on 才算第一次接触）
+    - CONTACT：接触中，力仍明显，或力略降但柔顺/偏移仍在操作
+    - POST：已离开接触（|f| 回落到 f_exit 以下），即使 k_soft/|Δ| 尚未完全归零
+    """
+    force_touch = force_norm >= f_on_n
+    force_hold = force_norm >= f_hold_n
+    soft_active = k_soft < k_hard * k_soft_ratio
+    delta_active = delta_mm >= delta_on_mm
+
+    if not contacted_started:
+        if force_touch:
+            return "CONTACT", True, "manipulation: |f|"
+        return "PRE", False, "approach, no contact yet"
+
+    # 力已释放：结束接触，不再因 k_soft/|Δ| 残留而保持红色
+    if force_norm < f_exit_n:
+        return "POST", contacted_started, "after contact, released"
+
+    if force_hold:
+        reasons = ["|f|"]
+        if soft_active:
+            reasons.append("k_soft↓")
+        if delta_active:
+            reasons.append("|Δ|")
+        return "CONTACT", contacted_started, "manipulation: " + "+".join(reasons)
+
+    # f_exit <= |f| < f_hold：短暂力回落，仅当柔顺仍在操作时才保持红色
+    if soft_active or delta_active:
+        reasons: list[str] = []
+        if soft_active:
+            reasons.append("k_soft↓")
+        if delta_active:
+            reasons.append("|Δ|")
+        return "CONTACT", contacted_started, "manipulation: " + "+".join(reasons)
+
+    return "POST", contacted_started, "after contact, released"
+
+
+def _center_crop_zoom(bgr: np.ndarray, zoom: float = 1.0) -> np.ndarray:
+    """中心裁切放大，zoom>1 时裁掉四周留白、让主体更满。"""
+    z = float(zoom)
+    if z <= 1.0 + 1e-6:
+        return bgr
+    h, w = bgr.shape[:2]
+    nw = max(1, int(round(w / z)))
+    nh = max(1, int(round(h / z)))
+    x0 = max(0, (w - nw) // 2)
+    y0 = max(0, (h - nh) // 2)
+    crop = bgr[y0 : y0 + nh, x0 : x0 + nw]
+    return cv2.resize(crop, (w, h), interpolation=cv2.INTER_CUBIC)
+
+
 def _overlay_pip(overview_bgr: np.ndarray, wrist_rgb: np.ndarray) -> np.ndarray:
     """左下角叠腕部 RGB（右侧留给刚度面板）。"""
     h, w = overview_bgr.shape[:2]
-    pip_w = max(140, w // 4)
-    pip_h = max(140, h // 4)
+    pip_w = max(160, w // 3)
+    pip_h = max(160, h // 3)
     wrist_bgr = cv2.cvtColor(wrist_rgb, cv2.COLOR_RGB2BGR)
-    pip = cv2.resize(wrist_bgr, (pip_w, pip_h), interpolation=cv2.INTER_AREA)
+    sh, sw = wrist_bgr.shape[:2]
+    # INTER_AREA 更适合下采样；需要放大时用线性/立方避免过度糊化
+    if pip_w <= sw and pip_h <= sh:
+        interp = cv2.INTER_AREA
+    else:
+        interp = cv2.INTER_CUBIC
+    pip = cv2.resize(wrist_bgr, (pip_w, pip_h), interpolation=interp)
     x0 = 12
     y0 = h - pip_h - 12
     overview_bgr[y0 : y0 + pip_h, x0 : x0 + pip_w] = pip
@@ -83,9 +156,49 @@ def _overlay_pip(overview_bgr: np.ndarray, wrist_rgb: np.ndarray) -> np.ndarray:
     return overview_bgr
 
 
-def _draw_hud(frame_bgr: np.ndarray, tilt_deg: float, step: int, k_low: float | None) -> None:
-    cv2.rectangle(frame_bgr, (0, 0), (frame_bgr.shape[1], 36), (20, 20, 20), -1)
+def _draw_hud(
+    frame_bgr: np.ndarray,
+    tilt_deg: float,
+    step: int,
+    k_low: float | None,
+    *,
+    contact_state: str | None = None,
+    contact_detail: str | None = None,
+) -> None:
+    # 颜色高亮：接触前/接触中/接触后
+    # BGR：
+    #   PRE:   灰绿 — 尚未接触，主要靠视觉接近
+    #   CONTACT: 红 — |f|、k_soft 下降或 |Δ| 表明力控/柔顺在主导
+    #   POST:  青 — 曾接触过，当前力与柔顺偏移都较小
+    bar_color = (20, 20, 20)
+    marker = ""
+    detail = contact_detail or ""
+    if contact_state:
+        s = contact_state.upper()
+        if s.startswith("PRE"):
+            bar_color = (25, 75, 25)
+            marker = "PRE-CONTACT"
+            if not detail:
+                detail = "approach, no contact yet"
+        elif s.startswith("CONTACT"):
+            bar_color = (40, 40, 200)
+            marker = "IN CONTACT"
+            if not detail:
+                detail = "force or compliance active"
+        elif s.startswith("POST"):
+            bar_color = (25, 180, 150)
+            marker = "POST-CONTACT"
+            if not detail:
+                detail = "after contact, released"
+        else:
+            marker = s
+
+    cv2.rectangle(frame_bgr, (0, 0), (frame_bgr.shape[1], 36), bar_color, -1)
     label = f"ACP v2-ft trimodal  tilt={tilt_deg:5.1f}deg  step={step}"
+    if marker:
+        label += f"  {marker}"
+    if detail:
+        label += f" ({detail})"
     if k_low is not None:
         label += f"  k_soft={k_low:.0f}N/m"
     cv2.putText(
@@ -101,28 +214,39 @@ def _draw_hud(frame_bgr: np.ndarray, tilt_deg: float, step: int, k_low: float | 
 
 
 class CompliancePanel:
-    """右侧实时面板：力 / k_soft vs k_hard / soft-axis + tilt。
+    """右侧实时面板：力 / k_soft vs k_hard / soft-axis + tilt。"""
 
-    直观表达 ACP 本质：接触方向（soft û）上 k 变软，正交方向 k_hard 保持高刚度。
-    """
-
-    def __init__(self, width: int = 420, height: int = 360, k_hard: float = 5000.0):
+    def __init__(
+        self,
+        width: int = 420,
+        height: int = 360,
+        k_hard: float = 5000.0,
+        render_scale: float = 2.0,
+    ):
         import matplotlib
 
         matplotlib.use("Agg")
         self.width = int(width)
         self.height = int(height)
         self.k_hard = float(k_hard)
+        self._render_scale = max(1.0, float(render_scale))
+        self._fig_wh: tuple[int, int] | None = None
         self.steps: list[int] = []
         self.fn: list[float] = []
         self.k_soft: list[float] = []
         self.delta_mm: list[float] = []
+        self.rgb_diff: list[float] = []
         self.soft: list[np.ndarray] = []
         self.tilt: list[float] = []
         self._fig = None
         self._axes = None
         self._ax0b = None
         self._ax2c = None
+        # 窄面板（≈400px 宽）字号/边距
+        self._fs_title = 7.0
+        self._fs_label = 6.0
+        self._fs_tick = 5.5
+        self._fs_legend = 5.0
 
     def push(
         self,
@@ -133,34 +257,119 @@ class CompliancePanel:
         soft_axis: np.ndarray,
         delta_m: float,
         tilt_deg: float,
+        rgb_diff: float = 0.0,
     ) -> None:
         self.steps.append(int(step))
         self.fn.append(float(np.linalg.norm(force_xyz)))
         self.k_soft.append(float(k_soft))
         self.delta_mm.append(float(delta_m) * 1000.0)
+        self.rgb_diff.append(float(rgb_diff))
         self.soft.append(np.asarray(soft_axis, dtype=float).reshape(3).copy())
         self.tilt.append(float(tilt_deg))
 
-    def _style_ax(self, ax) -> None:
+    def _style_ax(self, ax, *, label_fs: float | None = None) -> None:
+        fs = self._fs_tick if label_fs is None else label_fs
         ax.set_facecolor("#1a1a1a")
-        ax.tick_params(colors="#cccccc", labelsize=7)
+        ax.tick_params(
+            colors="#b8b8b8",
+            labelsize=fs,
+            length=2.5,
+            width=0.6,
+            pad=1.5,
+        )
         for spine in ax.spines.values():
-            spine.set_color("#555555")
-        ax.grid(True, alpha=0.25, color="#666666")
+            spine.set_color("#4a4a4a")
+            spine.set_linewidth(0.6)
+        ax.grid(True, alpha=0.22, color="#5a5a5a", linewidth=0.5)
+
+    def _set_title(self, ax, text: str, *, pad: float | None = None) -> None:
+        ax.set_title(
+            text,
+            fontsize=self._fs_title,
+            color="#ececec",
+            pad=pad if pad is not None else 5,
+            loc="left",
+            fontweight="normal",
+        )
+
+    def _compact_legend(
+        self,
+        ax,
+        *,
+        loc: str = "upper left",
+        ncol: int = 1,
+        y: float = 0.96,
+    ) -> None:
+        anchor = {
+            "upper left": (0.0, y),
+            "upper right": (1.0, y),
+            "lower left": (0.0, 0.04),
+            "lower right": (1.0, 0.04),
+        }.get(loc, (0.0, y))
+        ax.legend(
+            loc=loc,
+            bbox_to_anchor=anchor,
+            ncol=ncol,
+            fontsize=self._fs_legend,
+            frameon=True,
+            facecolor="#1c1c1c",
+            edgecolor="#3d3d3d",
+            labelcolor="#d8d8d8",
+            framealpha=0.92,
+            handlelength=1.4,
+            handletextpad=0.35,
+            borderpad=0.25,
+            labelspacing=0.25,
+            columnspacing=0.6,
+        )
+
+    def _style_xaxis(self, ax, t: np.ndarray, *, show_label: bool) -> None:
+        import matplotlib.ticker as mticker
+
+        t0 = float(t[0])
+        t1 = float(t[-1]) if len(t) > 1 else t0 + 1.0
+        ax.set_xlim(t0, t1)
+        ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=4, integer=True, min_n_ticks=2))
+        if show_label:
+            ax.set_xlabel("step", fontsize=self._fs_label, color="#bdbdbd", labelpad=2)
+        else:
+            ax.set_xlabel("")
+            ax.tick_params(axis="x", labelbottom=False)
+
+    def _apply_layout(self) -> None:
+        # top 留足首图标题空间，避免裁切
+        self._fig.subplots_adjust(
+            left=0.17,
+            right=0.86,
+            top=0.90,
+            bottom=0.08,
+            hspace=0.64,
+        )
 
     def render_bgr(self) -> np.ndarray:
         import matplotlib.pyplot as plt
 
-        if self._fig is None:
-            dpi = 100
+        ss = self._render_scale
+        rw = max(self.width, int(round(self.width * ss)))
+        rh = max(self.height, int(round(self.height * ss)))
+        if self._fig is None or self._fig_wh != (rw, rh):
+            if self._fig is not None:
+                plt.close(self._fig)
+            self._fig = None
+            self._axes = None
+            self._ax0b = None
+            self._ax2c = None
+            dpi = 192
             self._fig, self._axes = plt.subplots(
                 3,
                 1,
-                figsize=(self.width / dpi, self.height / dpi),
+                figsize=(rw / dpi, rh / dpi),
                 dpi=dpi,
-                constrained_layout=True,
             )
+            self._fig_wh = (rw, rh)
             self._fig.patch.set_facecolor("#111111")
+            self._apply_layout()
+
             self._ax0b = self._axes[0].twinx()
             self._ax2c = self._axes[2].twinx()
             for ax in list(self._axes) + [self._ax0b, self._ax2c]:
@@ -181,61 +390,60 @@ class CompliancePanel:
         fn = np.asarray(self.fn, dtype=float)
         ks = np.asarray(self.k_soft, dtype=float)
         dmm = np.asarray(self.delta_mm, dtype=float)
+        rgbd = np.asarray(self.rgb_diff, dtype=float)
         soft = np.stack(self.soft, axis=0)
         tilt = np.asarray(self.tilt, dtype=float)
 
-        # 1) force + compliance offset
-        ax0.set_title("Contact force & compliance offset", fontsize=8, color="#eeeeee", pad=2)
-        ax0.plot(t, fn, color="#4fc3f7", lw=1.2, label="|f| (N)")
-        ax0.set_ylabel("|f| (N)", fontsize=7, color="#4fc3f7")
-        ax0.tick_params(axis="y", labelcolor="#4fc3f7")
-        ax0b.plot(t, dmm, color="#ffb74d", lw=1.2, label="|Δ| (mm)")
-        ax0b.set_ylabel("|x_virt−x_ref| (mm)", fontsize=7, color="#ffb74d")
-        ax0b.tick_params(axis="y", colors="#ffb74d", labelsize=7)
-        ax0.legend(loc="upper left", fontsize=6, facecolor="#222", labelcolor="#eee")
+        # 1) force + compliance + RGB diff
+        self._set_title(ax0, "Force · Compliance · Vision", pad=7)
+        ax0.plot(t, fn, color="#4fc3f7", lw=1.2, label="|f|")
+        ax0.set_ylabel("N", fontsize=self._fs_label, color="#4fc3f7", labelpad=2)
+        ax0.tick_params(axis="y", labelcolor="#4fc3f7", colors="#4fc3f7")
+        ax0b.plot(t, dmm, color="#ffb74d", lw=1.0, label="|Δ|")
+        ax0b.plot(t, rgbd, color="#ffd54f", lw=0.9, ls="--", label="RGB")
+        ax0b.set_ylabel("mm", fontsize=self._fs_label, color="#ffb74d", labelpad=2)
+        ax0b.tick_params(axis="y", labelcolor="#ffb74d", colors="#ffb74d")
+        self._style_xaxis(ax0, t, show_label=False)
+        self._compact_legend(ax0, loc="upper left", ncol=2, y=0.90)
+        self._compact_legend(ax0b, loc="upper right", ncol=1, y=0.90)
 
-        # 2) k_soft (adaptive) vs k_hard (orthogonal fixed) — ACP 核心对照
-        ax1.set_title(
-            "ACP: soft-axis k drops; orthogonal k_hard stays high",
-            fontsize=8,
-            color="#eeeeee",
-            pad=2,
-        )
-        ax1.plot(t, ks, color="#ef5350", lw=1.4, label="k_soft (along û)")
+        # 2) stiffness
+        self._set_title(ax1, "Adaptive Stiffness")
+        ax1.plot(t, ks, color="#ef5350", lw=1.3, label="k_soft")
         ax1.axhline(
             self.k_hard,
             color="#66bb6a",
-            lw=1.3,
+            lw=1.1,
             ls="--",
-            label=f"k_hard ⊥û (= {self.k_hard:.0f})",
+            label="k_hard",
         )
-        ax1.set_ylabel("stiffness (N/m)", fontsize=7, color="#dddddd")
-        ax1.set_ylim(0.0, max(self.k_hard * 1.15, float(ks.max()) * 1.1, 1.0))
-        ax1.legend(loc="upper right", fontsize=6, facecolor="#222", labelcolor="#eee")
+        ax1.set_ylabel("N/m", fontsize=self._fs_label, color="#cccccc", labelpad=2)
+        ax1.set_ylim(0.0, max(self.k_hard * 1.12, float(ks.max()) * 1.08, 1.0))
+        self._style_xaxis(ax1, t, show_label=False)
+        self._compact_legend(ax1, loc="upper right", ncol=2)
 
-        # 3) soft-axis direction + cube tilt
-        ax2.set_title(
-            "Soft axis û (= virt−ref / force) + cube tilt",
-            fontsize=8,
-            color="#eeeeee",
-            pad=2,
-        )
-        ax2.plot(t, soft[:, 0], color="#42a5f5", lw=1.0, label="ûx")
-        ax2.plot(t, soft[:, 1], color="#ab47bc", lw=1.0, label="ûy")
-        ax2.plot(t, soft[:, 2], color="#26a69a", lw=1.0, label="ûz")
-        ax2.set_ylabel("û (world)", fontsize=7, color="#dddddd")
-        ax2.set_ylim(-1.15, 1.15)
-        ax2.set_xlabel("sim step", fontsize=7, color="#dddddd")
-        ax2c.plot(t, tilt, color="#eeeeee", lw=1.3, label="tilt")
-        ax2c.set_ylabel("tilt (deg)", fontsize=7, color="#eeeeee")
-        ax2c.tick_params(axis="y", colors="#eeeeee", labelsize=7)
-        ax2.legend(loc="upper left", fontsize=6, facecolor="#222", labelcolor="#eee")
+        # 3) soft axis + tilt
+        self._set_title(ax2, "Soft Axis & Tilt")
+        ax2.plot(t, soft[:, 0], color="#42a5f5", lw=1.0, label="x")
+        ax2.plot(t, soft[:, 1], color="#ab47bc", lw=1.0, label="y")
+        ax2.plot(t, soft[:, 2], color="#26a69a", lw=1.0, label="z")
+        ax2.set_ylabel("û", fontsize=self._fs_label, color="#cccccc", labelpad=2)
+        ax2.set_ylim(-1.1, 1.1)
+        ax2c.plot(t, tilt, color="#e0e0e0", lw=1.2, label="tilt")
+        ax2c.set_ylabel("deg", fontsize=self._fs_label, color="#e0e0e0", labelpad=2)
+        ax2c.tick_params(axis="y", labelcolor="#e0e0e0", colors="#e0e0e0")
+        self._style_xaxis(ax2, t, show_label=True)
+        self._compact_legend(ax2, loc="upper left", ncol=3, y=0.92)
+        self._compact_legend(ax2c, loc="upper right", ncol=1, y=0.92)
 
+        self._apply_layout()
         self._fig.canvas.draw()
         rgba = np.asarray(self._fig.canvas.buffer_rgba())
         bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
-        if bgr.shape[0] != self.height or bgr.shape[1] != self.width:
-            bgr = cv2.resize(bgr, (self.width, self.height), interpolation=cv2.INTER_AREA)
+        if bgr.shape[1] != self.width or bgr.shape[0] != self.height:
+            bgr = cv2.resize(
+                bgr, (self.width, self.height), interpolation=cv2.INTER_AREA
+            )
         return bgr
 
     def close(self) -> None:
@@ -247,21 +455,26 @@ class CompliancePanel:
             self._axes = None
             self._ax0b = None
             self._ax2c = None
+            self._fig_wh = None
 
 
 def _compose_split(left_bgr: np.ndarray, right_bgr: np.ndarray) -> np.ndarray:
     h = max(left_bgr.shape[0], right_bgr.shape[0])
     if left_bgr.shape[0] != h:
-        left_bgr = cv2.resize(left_bgr, (left_bgr.shape[1], h))
+        interp = cv2.INTER_AREA if h < left_bgr.shape[0] else cv2.INTER_CUBIC
+        left_bgr = cv2.resize(left_bgr, (left_bgr.shape[1], h), interpolation=interp)
     if right_bgr.shape[0] != h:
-        right_bgr = cv2.resize(right_bgr, (right_bgr.shape[1], h))
+        interp = cv2.INTER_AREA if h < right_bgr.shape[0] else cv2.INTER_CUBIC
+        right_bgr = cv2.resize(right_bgr, (right_bgr.shape[1], h), interpolation=interp)
     # 中间分隔线
     sep = np.full((h, 4, 3), 60, dtype=np.uint8)
     out = np.concatenate([left_bgr, sep, right_bgr], axis=1)
     # yuv420p 要求偶数边
     hh, ww = out.shape[:2]
-    if hh % 2 or ww % 2:
-        out = cv2.resize(out, (ww - ww % 2, hh - hh % 2))
+    if hh % 2:
+        out = out[:-1, :, :]
+    if ww % 2:
+        out = out[:, :-1, :]
     return out
 
 
@@ -336,18 +549,28 @@ def record_sim_flip(
     frame_i = 0
     flip_done_rad = math.radians(float(flip_done_deg))
     hold_left = -1
+    contacted = False
+    contact_detail = "approach, no contact yet"
 
     tmp_root = Path(tempfile.mkdtemp(prefix="acp_media_flip_"))
     try:
         def _capture() -> None:
-            nonlocal frame_i, max_tilt
+            nonlocal frame_i, max_tilt, contacted, contact_detail
             overview = backend.render_overview_rgb(width=width, height=height)
             wrist = backend.render_rgb()
             tilt = math.degrees(backend.cube_tilt_rad())
             max_tilt = max(max_tilt, backend.cube_tilt_rad())
             st = backend.read_state()
             f = st.wrench_W[:3].copy()
+            fn = float(np.linalg.norm(f))
             delta = float(np.linalg.norm(x_virt_show - x_ref_show))
+            contact_state, contacted, contact_detail = classify_contact_phase(
+                force_norm=fn,
+                k_soft=float(k_show),
+                k_hard=float(k_hard),
+                delta_mm=delta * 1000.0,
+                contacted_started=contacted,
+            )
             panel.push(
                 i_step,
                 force_xyz=f,
@@ -358,7 +581,14 @@ def record_sim_flip(
             )
             left = cv2.cvtColor(overview, cv2.COLOR_RGB2BGR)
             left = _overlay_pip(left, wrist)
-            _draw_hud(left, tilt, i_step, k_show)
+            _draw_hud(
+                left,
+                tilt,
+                i_step,
+                k_show,
+                contact_state=contact_state,
+                contact_detail=contact_detail,
+            )
             right = panel.render_bgr()
             frame = _compose_split(left, right)
             cv2.imwrite(str(tmp_root / f"frame_{frame_i:05d}.png"), frame)
