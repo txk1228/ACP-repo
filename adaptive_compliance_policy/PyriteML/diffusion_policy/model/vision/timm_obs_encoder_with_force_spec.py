@@ -114,8 +114,10 @@ class TimmObsEncoderWithForceSpec(ModuleAttrMixin):
                     dropout=0.1,
                     emb_dropout=0.1,
                 )
-                modules = list(model.children())[:-2]
-                model = torch.nn.Sequential(*modules)  # remove last two layers
+                # ViT children: [patch_embed, dropout, transformer, identity_head]
+                # Official Spec ckpt keeps patch+dropout+transformer (only drop identity).
+                modules = list(model.children())[:-1]
+                model = torch.nn.Sequential(*modules)
             else:
                 model = timm.create_model(
                     model_name=cfg.model_name,
