@@ -46,7 +46,7 @@ conda activate pyrite
 export PYTHONNOUSERSITE=1
 export PYRITE_CHECKPOINT_FOLDERS=~/training_outputs
 export PYRITE_DATASET_FOLDERS=~/data/real_processed
-cd ~/ACP_fx/adaptive_compliance_policy/PyriteML
+cd ~/ACP-repo/adaptive_compliance_policy/PyriteML
 
 # 单臂 Flip Conv 对比
 HYDRA_FULL_ERROR=1 accelerate launch train.py \

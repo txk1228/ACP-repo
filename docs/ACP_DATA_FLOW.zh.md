@@ -163,7 +163,7 @@ episode_data["action"] = np.concatenate(action, axis=-1)
 ### 文件
 `PyriteML/diffusion_policy/dataset/virtual_target_dataset.py`
 
-**它做什么：**
+**功能：**
 1. 从 zarr 读原始 episode
 2. 调 `raw_to_obs()` / `raw_to_action19()` 转换格式
 3. 用 `SequenceSampler` 切时间窗口（如力窗口 7000 点、动作 horizon 16 步）

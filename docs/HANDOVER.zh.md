@@ -1,49 +1,50 @@
-# ACP 复现交接说明
+# ACP 复现项目状态
 
-> 快照时间：2026-07-27（UTC+8）  
-> 背景：负责人约 **8 月 1 日**返校，**真机复现未启动**；算法侧 Demo + Spec + Conv 对比均已完成；仿真翻方块（`sim_acp/`）已通。  
-> 仓库（Public）：https://github.com/txk1228/ACP-repo  
-> 本机工作区：`/home/zj/ACP_fx`（RTX 4090）
+> 更新：2026-07-29（UTC+8）  
+> 仓库：https://github.com/txk1228/ACP-repo（Public）  
+> 本机工作区：`/home/zj/ACP-repo`（RTX 4090；历史路径可能仍见 `ACP_fx`）
 
-直接 `git clone` 即可；若需推送权限，再让 Owner（`txk1228`）在 GitHub **Settings → Collaborators** 添加账号。
-
----
-
-## 1. 一分钟现状
-
-| 阶段 | 状态 | 说明 |
-|------|------|------|
-| 阶段一 Demo | ✅ 完成 | 虚拟目标 + 变刚度可视化，无需 GPU |
-| 阶段二 Spec（论文主方法 / FFT） | ✅ 完成 | Flip + Vase，各 300 epoch；权重与 RMSE 已归档 |
-| 阶段二 Conv（消融：ACP w/o FFT） | ✅ 完成 | Flip + Vase，各 300 epoch；终盘对照已归档 |
-| 仿真 `sim_acp/` | ✅ 完成 | v2-ft 策略可翻方块（腕部 RGB） |
-| 阶段三 真机（至简 i7 Pro） | 📋 未开始 | 仅有适配方案，无桥接代码 / 真机实验 |
-
-**建议主线**：Spec/Conv 已对照 → **MuJoCo 单臂翻方块**（`sim_acp/`，已通）→ 有机后再按 `I7_ACP_ADAPTATION` 上真机（优先单臂 flip）。
-
-进度面板（本机）：http://127.0.0.1:8765 — `bash scripts/run_progress_panel.sh`
-
----
-
-## 2. 代码与文档
+算法侧 Demo、Spec/Conv 对照与仿真翻方块（`sim_acp/`）已完成；真机复现未启动。
 
 ```bash
 git clone https://github.com/txk1228/ACP-repo.git
 cd ACP-repo
 ```
 
-仓库已含官方 ACP 副本 `adaptive_compliance_policy/` 及本复现改动，一般不必再单独 clone 上游。
+推送权限由 Owner（`txk1228`）在 GitHub Settings → Collaborators 添加。
+
+---
+
+## 1. 项目状态
+
+| 阶段 | 状态 | 说明 |
+|------|------|------|
+| 阶段一 Demo | ✅ | 虚拟目标 + 变刚度可视化，无需 GPU |
+| 阶段二 Spec（FFT） | ✅ | Flip + Vase，各 300 epoch；权重与 RMSE 已归档 |
+| 阶段二 Conv（消融） | ✅ | Flip + Vase，各 300 epoch；终盘对照已归档 |
+| 仿真 `sim_acp/` | ✅ | v2-ft 策略可翻方块（腕部 RGB） |
+| 阶段三 真机（i7 Pro） | 📋 | 仅有适配方案；无桥接代码 / 真机实验 |
+
+推荐路径：Spec/Conv 归档 → **MuJoCo 单臂翻方块**（已通）→ 有机后按 `I7_ACP_ADAPTATION` 上真机（优先单臂 flip）。
+
+进度面板：`bash scripts/run_progress_panel.sh` → http://127.0.0.1:8765
+
+---
+
+## 2. 文档索引
 
 | 文档 | 用途 |
 |------|------|
-| **本文** `docs/HANDOVER.zh.md` | 交接总览（先读） |
-| `README.md` | 快速开始、续训、进度面板 |
+| 本文 | 状态、路径、命令入口 |
+| `README.md` | 流程总览、续训、进度面板 |
 | `docs/REPRODUCTION.zh.md` | Demo → 训练步骤 |
-| `docs/TRAINING_RESULTS_SPEC.zh.md` | Spec 权重路径、loss、RMSE |
-| `docs/TRAINING_CONV_COMPARE.zh.md` | Conv 对比 yaml、**终盘 Spec/Conv 对照** |
-| `docs/I7_ACP_ADAPTATION.zh.md` | 真机适配与桥接思路 |
-| `docs/MUJOCO_ACP_SIM_MVP.zh.md` | **MuJoCo 单臂翻方块 MVP（方案 B / `sim_acp/`）** |
-| `docs/ACP_ALGORITHM_GUIDE.zh.md` / `ACP_DATA_FLOW.zh.md` | 算法与读代码顺序 |
+| `docs/TRAINING_RESULTS_SPEC.zh.md` | Spec 权重与指标 |
+| `docs/TRAINING_CONV_COMPARE.zh.md` | Conv 对照 |
+| `docs/I7_ACP_ADAPTATION.zh.md` | 真机适配 |
+| `docs/MUJOCO_ACP_SIM_MVP.zh.md` | 仿真 MVP（方案 B） |
+| `docs/ACP_ALGORITHM_GUIDE.zh.md` / `ACP_DATA_FLOW.zh.md` | 算法与数据流 |
+
+仓库已含 `adaptive_compliance_policy/` 及本仓改动，一般无需再 clone 上游。
 
 ---
 
@@ -53,12 +54,12 @@ cd ACP-repo
 |------|------|------|
 | Flip 数据集 | `~/data/real_processed/flip_up_new_v5` | ~10G |
 | Vase 数据集 | `~/data/real_processed/vase_wiping_v6.3` | ~42G |
-| 训练输出 | `~/training_outputs/` | ckpt / `logs.json.txt` / eval JSON |
-| 训练日志 | `~/ACP_fx/logs/train_*.log` | gitignore |
+| 训练输出 | `~/training_outputs/` | ckpt / logs / eval |
+| 训练日志 | `logs/train_*.log`（仓库内，gitignore） | |
 
-换机接手：继续用本站，或拷贝 `data/real_processed` + 需要的 `training_outputs/<run_dir>`。
+换机：同步 `data/real_processed` 与所需 `training_outputs/<run_dir>`。
 
-### 规范 run（部署 / 对比只认这些）
+### 规范 run（基线）
 
 | 实验 | 状态 | 目录 |
 |------|------|------|
@@ -67,17 +68,17 @@ cd ACP-repo
 | Flip Conv | ✅ | `~/training_outputs/2026.07.22_10.58.33_flip_up_new_conv_compare_230` |
 | Vase Conv | ✅ | `~/training_outputs/2026.07.22_14.38.26_vase_wiping_conv_compare_230` |
 
-部署权重：各目录 `checkpoints/latest.ckpt`。每 10 epoch 存盘，latest 对应约 **epoch 290**（已训满 0～299）属正常。
+部署权重：各目录 `checkpoints/latest.ckpt`（约 epoch 290，训满 0–299 属正常）。  
+同前缀短跑 / 中断目录不作为基线。  
+指标快照：`docs/training_snapshots/`。
 
-同前缀还有若干短跑 / 中断目录，**不要**当正式基线。
-
-仓库内指标快照（防目录被挪）：`docs/training_snapshots/`（`spec_runs_index.json`、`conv_runs_index.json` 及各 `*_eval_*.json`）。
+仿真微调权重（翻方块）：`~/training_outputs/2026.07.24_16.16.52_flip_up_sim_flip_sim_ft/checkpoints/latest.ckpt`
 
 ---
 
 ## 4. 指标摘要（验证集）
 
-### Spec vs Conv（对齐 @ epoch 290；详见 TRAINING_* 文档）
+对齐 @ epoch 290；详见 TRAINING_* 文档。
 
 | 任务 | 编码 | train_loss @299 | 位姿 RMSE ref / virt (mm) | 刚度 RMSE (N/m) |
 |------|------|----------------:|--------------------------:|----------------:|
@@ -86,99 +87,80 @@ cd ACP-repo
 | Vase | Spec | ≈ 0.0102 | 22.46 / 24.29 | 834 |
 | Vase | Conv | ≈ 0.0102 | 22.53 / 24.20 | 809 |
 
-**离线结论**：两任务上 Spec≈Conv，对高频力谱不敏感；**最终以真机为准**。
+离线结论：两任务 Spec≈Conv，对高频力谱不敏感；最终以真机为准。
 
 ---
 
-## 5. 环境与常用命令
+## 5. 环境与命令
 
 ```bash
-# 训练环境（4090，仅首次）
 bash scripts/setup_pyrite_env_cuda.sh
 conda activate pyrite
 source scripts/setup_env.sh
 
-# Demo（可无 GPU）
 bash scripts/setup_demo_env.sh && conda activate acp-demo
 bash scripts/run_demo.sh
 
-# 进度面板
-bash scripts/run_progress_panel.sh   # → http://127.0.0.1:8765
-
-# 仿真翻方块（默认 v2-ft）
+bash scripts/run_progress_panel.sh
 bash scripts/run_sim_flip.sh
 ```
-
-环境变量（`setup_env.sh`）：
 
 - `PYRITE_DATASET_FOLDERS=~/data/real_processed`
 - `PYRITE_CHECKPOINT_FOLDERS=~/training_outputs`
 
-断点续训示例见 `README.md` Step 3「断点续训」（四条正式 run 已满 300，一般无需再续）。
+续训见 `README.md` §3。四条规范 run 已满 300 epoch，通常无需再续。
 
 ---
 
-## 6. 真机（阶段三）——后续工作
+## 6. 真机与后续
 
-**未做**：导纳真机验证、策略桥接、i7 数据采集、闭环部署。
+**未完成**：导纳真机验证、策略桥接、i7 数据采集、闭环部署。
 
-**仿真已通**：[`docs/MUJOCO_ACP_SIM_MVP.zh.md`](MUJOCO_ACP_SIM_MVP.zh.md) / [`sim_acp/README.md`](../sim_acp/README.md)——**单臂翻方块**（v2-ft PASS）；**不报任务成功率**。
+**仿真**：[`MUJOCO_ACP_SIM_MVP.zh.md`](MUJOCO_ACP_SIM_MVP.zh.md) / [`sim_acp/README.md`](../sim_acp/README.md) — 单臂翻方块 v2-ft PASS；不报任务成功率。
 
-真机方案：[`docs/I7_ACP_ADAPTATION.zh.md`](I7_ACP_ADAPTATION.zh.md)（已按 v1.5 源码核实）。要点：
+真机方案：[`I7_ACP_ADAPTATION.zh.md`](I7_ACP_ADAPTATION.zh.md)。要点：
 
-- 不依赖 UR5e；服务端已输出补偿后世界系 wrench；有 NRT 笛卡尔跟踪 + `force_admittance` 兜底  
-- 不能直接用官方 `hardware_interfaces`；桥接与仿真共用契约，真机侧实现 `RealBackend`  
-- **优先右臂 + 锁底盘 + flip**；首选方案 A（桥接预计算 `x_virt`，零改 C++）  
-- 阻塞项（真机时）：核实 SDK Python 是否有 `moveNRT(笛卡尔)` / `getLatestState`  
+- 不依赖 UR5e；服务端输出补偿世界系 wrench；NRT 笛卡尔跟踪 + `force_admittance`
+- 不可直接使用官方 `hardware_interfaces`；仿真与真机共用 `RobotBackend` 契约
+- 优先：右臂 + 锁底盘 + flip；方案 A（预计算 `x_virt`，零改 C++）
+- 阻塞项：核实 SDK Python 的笛卡尔 `moveNRT` / `getLatestState`
 
 推荐顺序：
 
-1. ~~MuJoCo 翻方块~~（已通）  
-2. 有机后：开启 `force_admittance` 手推 → RealBackend 换上 → Flip Spec 小幅度联调  
-3. 扩展 episode（RGB + wrench + pose）后再本机微调；按需上方案 B  
+1. MuJoCo 翻方块（已完成）
+2. 开启 `force_admittance` → `RealBackend` → Flip Spec 小幅度联调
+3. 扩展 episode 后本机微调；按需方案 B
 
-控制栈：`/home/zj/robot-control-v1.5`（与 ACP-repo 分离；部署机路径以实际为准）。
+控制栈：`/home/zj/robot-control-v1.5`（与 ACP-repo 分离）。
 
-### 本机未入库：双臂擦拭实验线 `sim_vase/`
+### 本机未入库：`sim_vase/`（双臂擦拭 spike）
 
-- **位置**：仅本机 `~/ACP_fx/sim_vase/`（**未推 GitHub**）；说明见同目录 `README.md` 与 `docs/MUJOCO_VASE_SIM_SPIKE.zh.md`。
-- **定位**：实验 spike，**不是**交接主线；交接主线仍是翻方块 → 真机 flip。
-- **已做到**：双 tip 脚本擦固定花瓶；双腕 RGB；双臂方案 A（接触 / 扫角 / 柔顺 PASS）。
-- **未做**：Vase Spec 策略闭环、仿真示教落盘与微调、软布与论文级擦拭成功率。
+- 路径：本机 `~/ACP_fx/sim_vase/`（未推 GitHub）
+- 定位：实验线，**非**当前主线（主线仍为翻方块 → 真机 flip）
+- 已完成：双 tip 脚本擦固定花瓶；双腕 RGB；双臂方案 A 单元验收
+- 未完成：Vase Spec 闭环、示教落盘与微调、论文级擦拭指标
 
-相对已交付的单臂翻方块，双臂擦拭仿真难点主要在：
-
-| 难点 | 说明 |
-|------|------|
-| 双臂契约翻倍 | 观测/动作按臂各一份（策略侧约 2×19）；不能直接复用 `sim_acp` 的单臂 backend / 场景 XML |
-| 持续双边接触 | 要左右同时贴面、力落在带内、周向扫角达标；比「一次 tip-over + tilt」更容易单侧掉接触 |
-| 成功口径更碎 | 当前只验接触步数 / 力带 / 扫角 / 方案 A；**没有**擦净率等任务语义指标 |
-| 进策略闭环更长 | 真机 Vase Spec 不能当仿真零样本结论；还需双 RGB+双 wrench+双 pose 落盘 → VT 标注 → 微调 |
-| 隔离成本 | 必须独立 `_acp_vase_scene.xml` 与 `DualI7MujocoBackend`，否则会污染已交付的 flip 链路 |
-
-有人要续做擦拭仿真时：先在本机跑 `bash scripts/run_sim_vase.sh`，确认是否入库再动 `sim_acp/` / 真机优先级。
+相对单臂翻方块的额外难点：双臂契约、持续双边接触、成功判据更碎、进策略闭环路径更长；须独立场景与 backend，避免污染 flip 链路。
 
 ---
 
-## 7. 接手检查清单
+## 7. 验证清单
 
-- [ ] 能 clone 公开仓 `https://github.com/txk1228/ACP-repo`（推送再加 Collaborator）  
-- [ ] 能登录 4090 站，看到 `~/ACP_fx`、`~/data/real_processed`、`~/training_outputs`  
-- [ ] `conda activate pyrite` + `source scripts/setup_env.sh` 正常  
-- [ ] 四条规范 run 的 `checkpoints/latest.ckpt` 存在  
-- [ ] 读完 `TRAINING_RESULTS_SPEC` + `TRAINING_CONV_COMPARE` + `I7_ACP_ADAPTATION`  
-- [ ] `bash scripts/run_sim_flip.sh` 能开仿真  
-- [ ] 与项目方确认：是否继续真机、优先 flip 还是 vase、时间表  
+- [ ] clone `https://github.com/txk1228/ACP-repo`
+- [ ] 本机可见 `~/data/real_processed`、`~/training_outputs`
+- [ ] `conda activate pyrite` + `source scripts/setup_env.sh`
+- [ ] 四条规范 run 的 `latest.ckpt` 存在
+- [ ] 阅读 `TRAINING_RESULTS_SPEC`、`TRAINING_CONV_COMPARE`、`I7_ACP_ADAPTATION`
+- [ ] `bash scripts/run_sim_flip.sh` 可启动
+- [ ] 确认后续是否推进真机，以及 flip / vase 优先级
 
 ---
 
-## 8. 联系与边界
+## 8. 边界
 
 | 项 | 说明 |
 |----|------|
-| 仓库 Owner | GitHub `txk1228` |
-| 本机用户 | `zj` @ 4090 工作站 |
-| 交接点 | 算法可复现 + Spec/Conv 基线权重 + 仿真翻方块；真机未做 |
-| 不在本仓 | 原始大数据集、G 级 checkpoint、conda 环境本体；本机另有未入库 `sim_vase/`（见 §6） |
-
-有疑问：本文 → `README.md` → 对应 `docs/*.zh.md`。
+| 仓库 Owner | `txk1228` |
+| 本机用户 | `zj` @ 4090 |
+| 已交付 | 算法复现 + Spec/Conv 基线 + 仿真翻方块 |
+| 不在本仓 | 原始大数据集、大体积 checkpoint、conda 环境；另有未入库 `sim_vase/` |

@@ -8,7 +8,7 @@
 
 ---
 
-## 0. 一分钟对照表
+## 0. 摘要对照表
 
 | 项目 | 单臂 Flip-up | 双臂 Vase wiping |
 |------|--------------|------------------|
@@ -68,8 +68,8 @@ accelerate launch train.py --config-name=train_spec_workspace task=vase_wiping_s
 └── .hydra/overrides.yaml                    # 命令行覆盖项
 
 终端日志（本机）：
-  ~/ACP_fx/train_flip_up.log
-  ~/ACP_fx/train_vase_wiping.log
+  ~/ACP-repo/logs/train_flip_up.log
+  ~/ACP-repo/logs/train_vase_wiping.log
 
 可视化面板：
   http://127.0.0.1:8765/   # scripts/train_progress_server.py
@@ -197,7 +197,7 @@ conda activate pyrite
 export PYTHONNOUSERSITE=1
 export PYRITE_CHECKPOINT_FOLDERS=~/training_outputs
 export PYRITE_DATASET_FOLDERS=~/data/real_processed
-cd ~/ACP_fx/adaptive_compliance_policy/PyriteML
+cd ~/ACP-repo/adaptive_compliance_policy/PyriteML
 
 # 仅查阅，勿覆盖 Spec 基线
 # vase Spec 当时关键 override 示例：
@@ -211,7 +211,7 @@ cd ~/ACP_fx/adaptive_compliance_policy/PyriteML
 进度面板：
 
 ```bash
-python3 ~/ACP_fx/scripts/train_progress_server.py
+python3 ~/ACP-repo/scripts/train_progress_server.py
 # → http://127.0.0.1:8765/
 ```
 
