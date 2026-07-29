@@ -238,6 +238,8 @@ class I7MujocoBackend:
         )
 
         self._renderer = None
+        self._display_renderer = None
+        self._display_wh: tuple[int, int] | None = None
         self._overview_renderer = None
         self._overview_wh: tuple[int, int] | None = None
         self._step_count = 0
@@ -249,13 +251,27 @@ class I7MujocoBackend:
     def set_viewer_sync_every(self, n: int) -> None:
         self._viewer_sync_every = max(1, int(n))
 
+    def _make_offscreen_renderer(self, height: int, width: int):
+        """离屏 RGB：有 passive viewer 时用 EGL，避免与 GLFW 抢上下文。"""
+        if self._render and self._viewer is not None:
+            prev_gl = os.environ.get("MUJOCO_GL")
+            os.environ["MUJOCO_GL"] = "egl"
+            try:
+                return self._mj.Renderer(
+                    self.model, height=int(height), width=int(width)
+                )
+            finally:
+                if prev_gl is None:
+                    os.environ.pop("MUJOCO_GL", None)
+                else:
+                    os.environ["MUJOCO_GL"] = prev_gl
+        return self._mj.Renderer(self.model, height=int(height), width=int(width))
+
     def _ensure_renderer(self) -> None:
         """离屏 RGB 才建 Renderer，避免与 interactive viewer 抢 GLFW 导致退出段错误。"""
         if self._renderer is not None:
             return
-        self._renderer = self._mj.Renderer(
-            self.model, height=self._cam_h, width=self._cam_w
-        )
+        self._renderer = self._make_offscreen_renderer(self._cam_h, self._cam_w)
 
     def _lock_base(self) -> None:
         self.data.qpos[0] = 0.0
@@ -621,15 +637,31 @@ class I7MujocoBackend:
             time.sleep(float(self.model.opt.timestep))
         return True
 
-    def render_rgb(self) -> np.ndarray:
-        self._ensure_renderer()
-        assert self._renderer is not None
+    def render_rgb(self, width: int | None = None, height: int | None = None) -> np.ndarray:
+        w = int(width) if width is not None else self._cam_w
+        h = int(height) if height is not None else self._cam_h
+        if w == self._cam_w and h == self._cam_h:
+            self._ensure_renderer()
+            renderer = self._renderer
+        else:
+            if self._display_renderer is None or self._display_wh != (w, h):
+                if self._display_renderer is not None:
+                    try:
+                        close_fn = getattr(self._display_renderer, "close", None)
+                        if callable(close_fn):
+                            close_fn()
+                    except Exception:
+                        pass
+                self._display_renderer = self._make_offscreen_renderer(h, w)
+                self._display_wh = (w, h)
+            renderer = self._display_renderer
+        assert renderer is not None
         self._mj.mj_forward(self.model, self.data)
         if self._cam_id >= 0:
-            self._renderer.update_scene(self.data, camera=self._cam_id)
+            renderer.update_scene(self.data, camera=self._cam_id)
         else:
-            self._renderer.update_scene(self.data)
-        return self._renderer.render().copy()
+            renderer.update_scene(self.data)
+        return renderer.render().copy()
 
     def render_overview_rgb(
         self,
@@ -649,7 +681,7 @@ class I7MujocoBackend:
                         close_fn()
                 except Exception:
                     pass
-            self._overview_renderer = self._mj.Renderer(self.model, height=h, width=w)
+            self._overview_renderer = self._make_offscreen_renderer(h, w)
             self._overview_wh = (w, h)
 
         self._mj.mj_forward(self.model, self.data)
@@ -670,7 +702,7 @@ class I7MujocoBackend:
     def close(self) -> None:
         # 顺序：先关离屏 Renderer，再关 passive viewer。
         # 两者共用 GLFW 时乱序销毁会 SIGSEGV（MuJoCo 已知问题）。
-        for attr in ("_overview_renderer", "_renderer"):
+        for attr in ("_overview_renderer", "_display_renderer", "_renderer"):
             renderer = getattr(self, attr, None)
             setattr(self, attr, None)
             if renderer is not None:

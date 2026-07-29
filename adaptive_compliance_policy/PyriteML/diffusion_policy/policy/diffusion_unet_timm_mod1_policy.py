@@ -139,8 +139,9 @@ class DiffusionUnetTimmMod1Policy(BaseImagePolicy):
             )
 
             # 3. compute previous image: x_t -> x_t-1
+            # policy kwargs (e.g. hack_no_obs_encoder_for_dense) are not scheduler args
             trajectory = scheduler.step(
-                model_output, t, trajectory, generator=generator, **kwargs
+                model_output, t, trajectory, generator=generator
             ).prev_sample
 
         # finally make sure conditioning is enforced
