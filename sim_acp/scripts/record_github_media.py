@@ -33,28 +33,120 @@ os.environ.setdefault("MUJOCO_GL", os.environ.get("MUJOCO_GL", "egl"))
 def _encode_mp4(frame_dir: Path, pattern: str, out_mp4: Path, fps: int) -> None:
     out_mp4.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_mp4.with_suffix(".tmp.mp4")
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-framerate",
-        str(fps),
-        "-i",
-        str(frame_dir / pattern),
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        "-crf",
-        "26",
-        "-movflags",
-        "+faststart",
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if ffmpeg_bin:
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-framerate",
+            str(fps),
+            "-i",
+            str(frame_dir / pattern),
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "26",
+            "-movflags",
+            "+faststart",
+            str(tmp),
+        ]
+        subprocess.run(cmd, check=True)
+        tmp.replace(out_mp4)
+        return
+
+    # Fallback：无系统 ffmpeg 时用 OpenCV（体积略大，但 README 可嵌入）
+    frames = sorted(frame_dir.glob(pattern.replace("%05d", "*")))
+    if not frames:
+        raise FileNotFoundError(f"no frames matching {pattern} in {frame_dir}")
+    first = cv2.imread(str(frames[0]))
+    if first is None:
+        raise RuntimeError(f"failed to read {frames[0]}")
+    h, w = first.shape[:2]
+    if h % 2:
+        h -= 1
+    if w % 2:
+        w -= 1
+    writer = cv2.VideoWriter(
         str(tmp),
-    ]
-    subprocess.run(cmd, check=True)
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        float(fps),
+        (w, h),
+    )
+    if not writer.isOpened():
+        raise RuntimeError("OpenCV VideoWriter failed to open (install ffmpeg preferred)")
+    try:
+        for fp in frames:
+            img = cv2.imread(str(fp))
+            if img is None:
+                continue
+            if img.shape[0] != h or img.shape[1] != w:
+                img = cv2.resize(img, (w, h), interpolation=cv2.INTER_AREA)
+            writer.write(img)
+    finally:
+        writer.release()
     tmp.replace(out_mp4)
+
+
+def maybe_make_gif(mp4: Path, gif: Path, *, scale: int = 480, fps: int = 10) -> Path | None:
+    if not mp4.is_file():
+        return None
+    gif.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if ffmpeg_bin:
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(mp4),
+            "-vf",
+            f"fps={fps},scale={scale}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer",
+            str(gif),
+        ]
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError:
+            return None
+        return gif if gif.is_file() else None
+
+    # Fallback：抽帧写 GIF（无 ffmpeg）
+    cap = cv2.VideoCapture(str(mp4))
+    if not cap.isOpened():
+        return None
+    frames_rgb: list[np.ndarray] = []
+    src_fps = cap.get(cv2.CAP_PROP_FPS) or float(fps)
+    step = max(1, int(round(src_fps / max(1, fps))))
+    i = 0
+    try:
+        while True:
+            ok, bgr = cap.read()
+            if not ok:
+                break
+            if i % step == 0:
+                h, w = bgr.shape[:2]
+                if w > scale:
+                    nh = max(1, int(round(h * (scale / float(w)))))
+                    bgr = cv2.resize(bgr, (scale, nh), interpolation=cv2.INTER_AREA)
+                frames_rgb.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+            i += 1
+    finally:
+        cap.release()
+    if not frames_rgb:
+        return None
+    try:
+        import imageio.v2 as imageio
+
+        imageio.mimsave(str(gif), frames_rgb, fps=fps, loop=0)
+    except Exception:
+        return None
+    return gif if gif.is_file() else None
 
 
 def classify_contact_phase(
@@ -164,6 +256,7 @@ def _draw_hud(
     *,
     contact_state: str | None = None,
     contact_detail: str | None = None,
+    title: str = "ACP v2-ft trimodal",
 ) -> None:
     # 颜色高亮：接触前/接触中/接触后
     # BGR：
@@ -194,7 +287,7 @@ def _draw_hud(
             marker = s
 
     cv2.rectangle(frame_bgr, (0, 0), (frame_bgr.shape[1], 36), bar_color, -1)
-    label = f"ACP v2-ft trimodal  tilt={tilt_deg:5.1f}deg  step={step}"
+    label = f"{title}  tilt={tilt_deg:5.1f}deg  step={step}"
     if marker:
         label += f"  {marker}"
     if detail:
@@ -494,6 +587,11 @@ def record_sim_flip(
     hold_after_flip: int = 500,
     k_hard: float = 5000.0,
     stiffness_png: Path | None = None,
+    overview_zoom: float = 1.0,
+    render_scale: float = 1.0,
+    overview_distance: float = 1.55,
+    hud_title: str = "ACP v2-ft trimodal",
+    panel_render_scale: float = 2.0,
 ) -> dict:
     from sim_acp.bridge.i7_mujoco_backend import I7MujocoBackend
     from sim_acp.bridge.plot_compliance import save_compliance_plots
@@ -509,7 +607,14 @@ def record_sim_flip(
     buf = WrenchRingBuffer(capacity=max(8000, runner.wrench_h + 10))
     pose_buf = PoseRingBuffer(capacity=max(16, runner.pose_h + 4))
     rgb_buf = RgbRingBuffer(capacity=max(8, runner.rgb_h + 2), h=rh, w=rw)
-    panel = CompliancePanel(width=panel_width, height=height, k_hard=k_hard)
+    from sim_acp.bridge.i7_scene import OFFSCREEN_MAX_H, OFFSCREEN_MAX_W
+
+    panel = CompliancePanel(
+        width=panel_width,
+        height=height,
+        k_hard=k_hard,
+        render_scale=float(panel_render_scale),
+    )
     hist: list[dict] = []
 
     for _ in range(80):
@@ -551,13 +656,28 @@ def record_sim_flip(
     hold_left = -1
     contacted = False
     contact_detail = "approach, no contact yet"
+    rs = max(1.0, float(render_scale))
+    oz = max(1.0, float(overview_zoom))
 
     tmp_root = Path(tempfile.mkdtemp(prefix="acp_media_flip_"))
     try:
         def _capture() -> None:
             nonlocal frame_i, max_tilt, contacted, contact_detail
-            overview = backend.render_overview_rgb(width=width, height=height)
-            wrist = backend.render_rgb()
+            render_w = min(int(round(width * rs)), int(OFFSCREEN_MAX_W))
+            render_h = min(int(round(height * rs)), int(OFFSCREEN_MAX_H))
+            overview = backend.render_overview_rgb(
+                width=render_w,
+                height=render_h,
+                distance=float(overview_distance),
+            )
+            # 腕部 PIP 略超采样，避免放大发糊
+            pip_side = max(160, width // 3)
+            wrist_side = min(
+                int(round(pip_side * rs * 1.15)),
+                int(OFFSCREEN_MAX_W),
+                int(OFFSCREEN_MAX_H),
+            )
+            wrist = backend.render_rgb(width=wrist_side, height=wrist_side)
             tilt = math.degrees(backend.cube_tilt_rad())
             max_tilt = max(max_tilt, backend.cube_tilt_rad())
             st = backend.read_state()
@@ -580,6 +700,9 @@ def record_sim_flip(
                 tilt_deg=tilt,
             )
             left = cv2.cvtColor(overview, cv2.COLOR_RGB2BGR)
+            left = _center_crop_zoom(left, zoom=oz)
+            if left.shape[1] != width or left.shape[0] != height:
+                left = cv2.resize(left, (width, height), interpolation=cv2.INTER_AREA)
             left = _overlay_pip(left, wrist)
             _draw_hud(
                 left,
@@ -588,6 +711,7 @@ def record_sim_flip(
                 k_show,
                 contact_state=contact_state,
                 contact_detail=contact_detail,
+                title=hud_title,
             )
             right = panel.render_bgr()
             frame = _compose_split(left, right)
@@ -817,28 +941,7 @@ def record_stiffness_demo(out_mp4: Path, out_png: Path, *, fps: int = 12) -> dic
     }
 
 
-def maybe_make_gif(mp4: Path, gif: Path, *, scale: int = 480, fps: int = 10) -> Path | None:
-    if not mp4.is_file():
-        return None
-    gif.parent.mkdir(parents=True, exist_ok=True)
-    # palette GIF，体积可控，适合 README 内嵌预览
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-i",
-        str(mp4),
-        "-vf",
-        f"fps={fps},scale={scale}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer",
-        str(gif),
-    ]
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError:
-        return None
-    return gif if gif.is_file() else None
+
 
 
 def main() -> int:
@@ -859,7 +962,22 @@ def main() -> int:
             ),
         ),
     )
-    parser.add_argument("--skip-flip", action="store_true")
+    parser.add_argument("--skip-flip", action="store_true", help="跳过 GitHub 原版 v2-ft 录屏")
+    parser.add_argument(
+        "--skip-live",
+        action="store_true",
+        help="跳过 v2-ft-live UI 录屏（make_github_media.sh 默认带此开关）",
+    )
+    parser.add_argument(
+        "--also-live",
+        action="store_true",
+        help="额外录 v2-ft-live UI 媒体（与主线同权重，仅窗口不同）",
+    )
+    parser.add_argument(
+        "--only-live",
+        action="store_true",
+        help="只录 v2-ft-live（等同 --skip-flip --also-live）",
+    )
     parser.add_argument(
         "--demo-png",
         action="store_true",
@@ -888,12 +1006,17 @@ def main() -> int:
             unused.unlink()
         print(" ", {"png": results["demo"]["png"]})
 
-    if not args.skip_flip:
-        ckpt = Path(args.ckpt)
+    skip_flip = bool(args.skip_flip or args.only_live)
+    skip_live = bool(args.skip_live) and not bool(args.also_live or args.only_live)
+    if args.also_live or args.only_live:
+        skip_live = False
+    ckpt = Path(args.ckpt)
+
+    if not skip_flip:
         if not ckpt.is_file():
             print(f"[error] missing ckpt: {ckpt}")
             return 1
-        print(f"[media] recording v2-ft flip (split + compliance panel)… ckpt={ckpt}")
+        print(f"[media] recording v2-ft (GitHub 原版分屏)… ckpt={ckpt}")
         results["flip"] = record_sim_flip(
             out_dir / "sim_flip_v2ft.mp4",
             ckpt,
@@ -902,15 +1025,46 @@ def main() -> int:
             panel_width=int(args.panel_width),
             k_hard=float(args.k_hard),
             stiffness_png=out_dir / "sim_flip_v2ft_stiffness.png",
+            hud_title="ACP v2-ft trimodal",
         )
         print(" ", results["flip"])
         if results["flip"]["max_tilt_deg"] < 85.0:
             print("[warn] max tilt < 85° — cube may not look fully flipped")
         if not args.no_gif:
-            # 分屏更宽：GIF 缩到约 900px 宽，控制体积
             g = maybe_make_gif(
                 out_dir / "sim_flip_v2ft.mp4",
                 out_dir / "sim_flip_v2ft.gif",
+                scale=720,
+                fps=8,
+            )
+            print(f"  gif={g}")
+
+    if not skip_live:
+        if not ckpt.is_file():
+            print(f"[error] missing ckpt: {ckpt}")
+            return 1
+        print(f"[media] recording v2-ft-live (增强分屏：6:4 + 接触阶段 + 超采样)… ckpt={ckpt}")
+        results["live"] = record_sim_flip(
+            out_dir / "sim_flip_v2ft_live.mp4",
+            ckpt,
+            width=600,
+            height=480,
+            panel_width=400,
+            k_hard=float(args.k_hard),
+            stiffness_png=None,
+            overview_zoom=1.22,
+            render_scale=2.5,
+            overview_distance=1.12,
+            panel_render_scale=2.0,
+            hud_title="ACP v2-ft-live",
+        )
+        print(" ", results["live"])
+        if results["live"]["max_tilt_deg"] < 85.0:
+            print("[warn] live max tilt < 85° — cube may not look fully flipped")
+        if not args.no_gif:
+            g = maybe_make_gif(
+                out_dir / "sim_flip_v2ft_live.mp4",
+                out_dir / "sim_flip_v2ft_live.gif",
                 scale=720,
                 fps=8,
             )

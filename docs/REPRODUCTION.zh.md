@@ -1,7 +1,7 @@
 # ACP 论文复现指南
 
-> **当前阶段（轻量化）**：仅搭建 Demo 环境 + 运行核心算法可视化，**不下载数据集、不训练模型**。  
-> RTX 4090 到位后再进行完整训练复现。
+> **阶段划分**：先完成 Demo 环境与核心算法可视化；完整训练需 GPU 与官方数据集。  
+> 当前仓库已含 Spec/Conv 训练结果与仿真翻方块联调（见主 README）。
 
 论文：**Adaptive Compliance Policy: Learning Approximate Compliance for Diffusion Guided Control** (ICRA 2025)
 
@@ -11,7 +11,7 @@
 
 ---
 
-## 阶段一：轻量化 Demo（当前）
+## 阶段一：Demo（无需 GPU）
 
 ### 1. 创建 Demo 环境（~2 分钟，无需 GPU）
 
@@ -229,7 +229,7 @@ git clone https://github.com/yifan-hou/hardware_interfaces.git
 - [x] 轻量 Demo 环境 `acp-demo`（`scripts/setup_demo_env.sh`）
 - [x] 核心算法 Demo：虚拟目标 + 刚度可视化（`scripts/run_demo.sh`）
 
-### 阶段二 ⏸ 待 RTX 4090 到位后执行
+### 阶段二：完整训练（需 GPU）
 1. **配置训练环境**（在 GPU 机器上运行，无需 mamba，miniconda 即可）：
    ```bash
    bash scripts/setup_pyrite_env.sh   # 创建 pyrite 环境 + PyTorch
